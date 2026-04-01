@@ -345,30 +345,31 @@ const AdminDashboard = () => {
                   ? p.images[0]
                   : p.images?.[0]?.url || "https://via.placeholder.com/40";
                 return (
-                <tr key={p._id} className="hover:bg-gray-50">
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-3">
-                      <img src={imageUrl} alt={p.name}
-                        className="w-10 h-10 object-cover rounded-lg" />
-                      <span className="font-medium text-gray-700 line-clamp-1 max-w-xs">{p.name}</span>
-                    </div>
-                  </td>
-                  <td className="px-4 py-3 text-gray-500">{p.seller?.name || "—"}</td>
-                  <td className="px-4 py-3 text-gray-500">{p.category}</td>
-                  <td className="px-4 py-3 font-semibold text-brand">₹{p.price.toLocaleString()}</td>
-                  <td className="px-4 py-3">
-                    <span className={`font-bold ${p.stock < 5 ? "text-red-500" : "text-green-600"}`}>
-                      {p.stock}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3">
-                    <button onClick={() => handleDeleteProduct(p._id)}
-                      className="text-xs text-red-500 font-semibold hover:underline">
-                      Remove
-                    </button>
-                  </td>
-                </tr>
-              )}
+                  <tr key={p._id} className="hover:bg-gray-50">
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-3">
+                        <img src={imageUrl} alt={p.name}
+                          className="w-10 h-10 object-cover rounded-lg" />
+                        <span className="font-medium text-gray-700 line-clamp-1 max-w-xs">{p.name}</span>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 text-gray-500">{p.seller?.name || "—"}</td>
+                    <td className="px-4 py-3 text-gray-500">{p.category}</td>
+                    <td className="px-4 py-3 font-semibold text-brand">₹{p.price.toLocaleString()}</td>
+                    <td className="px-4 py-3">
+                      <span className={`font-bold ${p.stock < 5 ? "text-red-500" : "text-green-600"}`}>
+                        {p.stock}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <button onClick={() => handleDeleteProduct(p._id)}
+                        className="text-xs text-red-500 font-semibold hover:underline">
+                        Remove
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
