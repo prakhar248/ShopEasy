@@ -15,14 +15,23 @@ exports.placeOrder = async (req, res, next) => {
     }
 
     // Snapshot product details + seller on each item
-    const orderItems = cart.items.map((item) => ({
-      product:  item.product._id,
-      seller:   item.product.seller,   // <-- seller is now stored per item
-      name:     item.product.name,
-      image:    item.product.images[0]?.url || "",
-      price:    item.priceAtAdd,
-      quantity: item.quantity,
-    }));
+    const orderItems = cart.items.map((item) => {
+      // Handle images that can be either strings or {url, publicId} objects
+      let imageUrl = "";
+      if (item.product.images && item.product.images.length > 0) {
+        const firstImage = item.product.images[0];
+        imageUrl = typeof firstImage === "string" ? firstImage : (firstImage?.url || "");
+      }
+
+      return {
+        product:  item.product._id,
+        seller:   item.product.seller,   // <-- seller is now stored per item
+        name:     item.product.name,
+        image:    imageUrl,              // <-- now handles both string and object formats
+        price:    item.priceAtAdd,
+        quantity: item.quantity,
+      };
+    });
 
     const itemsPrice    = cart.items.reduce((acc, i) => acc + i.priceAtAdd * i.quantity, 0);
     const shippingPrice = itemsPrice > 500 ? 0 : 50;

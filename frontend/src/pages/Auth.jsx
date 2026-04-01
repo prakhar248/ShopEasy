@@ -12,6 +12,7 @@ import { toast } from "react-toastify";
 const Auth = ({ mode = "login" }) => {
   const [tab,     setTab]     = useState(mode);
   const [loading, setLoading] = useState(false);
+  const [error, setError]     = useState("");
   const { login }             = useAuth();
   const navigate              = useNavigate();
 
@@ -30,24 +31,45 @@ const Auth = ({ mode = "login" }) => {
   // ── Login ─────────────────────────────────────────────────
   const handleLogin = async (e) => {
     e.preventDefault();
+    setError("");
     setLoading(true);
     try {
       const { data } = await api.post("/auth/login", {
-        email:    form.email,
+        email:    form.email.trim(),
         password: form.password,
       });
 
+      console.log("[Auth] login response:", { success: data.success, hasToken: !!data.token, userId: data.user?._id });
+
+      if (!data.token || !data.user) {
+        console.error("[Auth] unexpected response shape:", data);
+        setError("Invalid response from server. Please try again.");
+        return;
+      }
+
       // Pass sellerProfile to context so ProtectedRoute can check approval
-      login(data.user, data.token, data.sellerProfile);
+      login(data.user, data.token, data.sellerProfile ?? null);
 
-      toast.success(`Welcome back, ${data.user.name}! 👋`);
+      toast.success(`Welcome back, ${data.user.name}!`);
 
-      // Role-based redirect
-      if (data.user.role === "admin")  return navigate("/admin");
-      if (data.user.role === "seller") return navigate("/seller");
-      return navigate("/");
+      // Default landing; role shortcuts for dashboards
+      if (data.user.role === "admin") {
+        navigate("/admin", { replace: true });
+        return;
+      }
+      if (data.user.role === "seller") {
+        navigate("/seller", { replace: true });
+        return;
+      }
+      navigate("/", { replace: true });
     } catch (err) {
-      toast.error(err.response?.data?.message || "Login failed");
+      const msg =
+        err.response?.data?.message ||
+        err.message ||
+        "Login failed. Check your email and password.";
+      console.error("[Auth] login error:", err.response?.status, msg);
+      setError(msg);
+      toast.error(msg);
     } finally {
       setLoading(false);
     }
@@ -101,7 +123,7 @@ const Auth = ({ mode = "login" }) => {
           {/* Tab switcher */}
           <div className="flex bg-gray-100 rounded-xl p-1 mb-6">
             {["login", "signup"].map((t) => (
-              <button key={t} onClick={() => setTab(t)}
+              <button key={t} onClick={() => { setTab(t); setError(""); }}
                 className={`flex-1 py-2 text-sm font-semibold rounded-lg transition-all
                   ${tab === t ? "bg-white shadow text-brand" : "text-gray-500"}`}>
                 {t === "login" ? "Login" : "Sign Up"}
@@ -111,16 +133,21 @@ const Auth = ({ mode = "login" }) => {
 
           {/* ── LOGIN FORM ──────────────────────────────── */}
           {tab === "login" && (
-            <form onSubmit={handleLogin} className="space-y-4">
+            <form onSubmit={handleLogin} className="space-y-4" noValidate>
+              {error && (
+                <div className="rounded-lg bg-red-50 border border-red-200 px-3 py-2 text-sm text-red-800" role="alert">
+                  {error}
+                </div>
+              )}
               <div>
                 <label className="text-sm font-medium text-gray-600 block mb-1">Email</label>
                 <input type="email" value={form.email} onChange={set("email")}
-                  placeholder="you@example.com" className="input-field" required />
+                  placeholder="you@example.com" className="input-field" required autoComplete="email" />
               </div>
               <div>
                 <label className="text-sm font-medium text-gray-600 block mb-1">Password</label>
                 <input type="password" value={form.password} onChange={set("password")}
-                  placeholder="••••••••" className="input-field" required />
+                  placeholder="••••••••" className="input-field" required autoComplete="current-password" />
               </div>
               <button type="submit" disabled={loading} className="btn-primary w-full py-3">
                 {loading ? "Signing in..." : "Login"}

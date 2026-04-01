@@ -75,7 +75,11 @@ const ProductDetail = () => {
         <div>
           <div className="aspect-square rounded-2xl overflow-hidden bg-gray-100 mb-3">
             <img
-              src={product.images[activeImg]?.url || "https://via.placeholder.com/500"}
+              src={
+                typeof product.images[activeImg] === "string"
+                  ? product.images[activeImg]
+                  : product.images[activeImg]?.url
+              }
               alt={product.name}
               className="w-full h-full object-cover"
             />
@@ -90,7 +94,11 @@ const ProductDetail = () => {
                   className={`w-16 h-16 rounded-lg overflow-hidden border-2 transition-colors
                     ${activeImg === i ? "border-brand" : "border-transparent"}`}
                 >
-                  <img src={img.url} alt="" className="w-full h-full object-cover" />
+                  <img
+                    src={typeof img === "string" ? img : img.url}
+                    alt=""
+                    className="w-full h-full object-cover"
+                  />
                 </button>
               ))}
             </div>

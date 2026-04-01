@@ -10,6 +10,17 @@ const api = axios.create({
   headers: { "Content-Type": "application/json" },
 });
 
+/** Public auth endpoints — 401 here means bad credentials, not “session expired” */
+function isAuthPublicRoute(config) {
+  const url = String(config?.url || "").toLowerCase();
+  return (
+    url.includes("auth/login") ||
+    url.includes("auth/signup") ||
+    url.includes("auth/forgot-password") ||
+    url.includes("auth/reset-password")
+  );
+}
+
 // ── Request Interceptor ──────────────────────────────────────
 // Automatically attach the JWT token to every outgoing request
 api.interceptors.request.use(
@@ -24,13 +35,16 @@ api.interceptors.request.use(
 );
 
 // ── Response Interceptor ─────────────────────────────────────
-// If the server returns 401 (token expired/invalid), log the user out
+// 401 on protected routes → clear session and send to login.
+// Do NOT do this for login/signup: wrong password also returns 401 and must show an error in UI.
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401) {
+    const status = error.response?.status;
+    if (status === 401 && !isAuthPublicRoute(error.config)) {
       localStorage.removeItem("token");
       localStorage.removeItem("user");
+      localStorage.removeItem("sellerProfile");
       window.location.href = "/login";
     }
     return Promise.reject(error);

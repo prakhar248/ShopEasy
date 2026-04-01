@@ -32,11 +32,19 @@ const ProductCard = ({ product }) => {
 
         {/* Product Image */}
         <div className="relative overflow-hidden aspect-square bg-gray-100">
-          <img
-            src={product.images[0]?.url || "https://via.placeholder.com/300"}
-            alt={product.name}
-            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-          />
+          {(() => {
+            // Handle images that can be either strings or {url, publicId} objects
+            const imageUrl = typeof product.images?.[0] === "string"
+              ? product.images[0]
+              : product.images?.[0]?.url || "https://via.placeholder.com/300";
+            return (
+              <img
+                src={imageUrl}
+                alt={product.name}
+                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+              />
+            );
+          })()}
           {/* Discount badge */}
           {hasDiscount && (
             <span className="absolute top-2 left-2 bg-red-500 text-white text-xs

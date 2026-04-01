@@ -195,7 +195,7 @@ const SellerDashboard = () => {
     <div className="max-w-7xl mx-auto px-4 py-8">
       <div className="flex items-center justify-between gap-3 mb-2">
         <h1 className="text-3xl font-bold text-gray-800">Seller Dashboard</h1>
-        <Link to="/seller/create-product" className="btn-primary text-sm">
+        <Link to="/create-product" className="btn-primary text-sm">
           + Quick Add Product
         </Link>
       </div>
@@ -228,16 +228,21 @@ const SellerDashboard = () => {
             <div className="card">
               <h3 className="font-semibold text-red-600 mb-3">⚠️ Low Stock Alert</h3>
               <div className="space-y-2">
-                {stats.lowStockProducts.map((p) => (
+                {stats.lowStockProducts.map((p) => {
+                  const imageUrl = typeof p.images?.[0] === "string"
+                    ? p.images[0]
+                    : p.images?.[0]?.url;
+                  return (
                   <div key={p._id} className="flex items-center justify-between text-sm">
                     <div className="flex items-center gap-2">
-                      <img src={p.images[0]?.url} alt={p.name}
+                      <img src={imageUrl} alt={p.name}
                         className="w-8 h-8 rounded object-cover" />
                       <span className="text-gray-700">{p.name}</span>
                     </div>
                     <span className="text-red-500 font-bold">{p.stock} left</span>
                   </div>
-                ))}
+                );
+                })}
               </div>
             </div>
           )}

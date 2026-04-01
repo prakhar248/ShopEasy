@@ -28,7 +28,7 @@ const Navbar = () => {
               <Link to="/seller" className="hover:text-brand transition-colors text-purple-600">
                 My Store
               </Link>
-              <Link to="/seller/create-product" className="hover:text-brand transition-colors text-purple-600">
+              <Link to="/create-product" className="hover:text-brand transition-colors text-purple-600">
                 Add Product
               </Link>
             </>

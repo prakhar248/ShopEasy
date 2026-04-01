@@ -45,11 +45,19 @@ const Cart = () => {
             <div key={item._id} className="card flex gap-4">
               {/* Product image */}
               <Link to={`/products/${item.product._id}`}>
-                <img
-                  src={item.product.images?.[0]?.url || "https://via.placeholder.com/100"}
-                  alt={item.product.name}
-                  className="w-24 h-24 object-cover rounded-xl flex-shrink-0"
-                />
+                {(() => {
+                  // Handle images that can be either strings or {url, publicId} objects
+                  const imageUrl = typeof item.product.images?.[0] === "string"
+                    ? item.product.images[0]
+                    : item.product.images?.[0]?.url || "https://via.placeholder.com/100";
+                  return (
+                    <img
+                      src={imageUrl}
+                      alt={item.product.name}
+                      className="w-24 h-24 object-cover rounded-xl flex-shrink-0"
+                    />
+                  );
+                })()}
               </Link>
 
               {/* Details */}

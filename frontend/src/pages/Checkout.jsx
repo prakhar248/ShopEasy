@@ -51,10 +51,19 @@ const Checkout = () => {
   const handlePlaceOrder = async () => {
     setLoading(true);
     try {
+      // Debug: Log cart items and their structure
+      console.log("[Checkout] Cart items before order:", items);
+      console.log("[Checkout] First item images:", items[0]?.product?.images);
+      
       const { data } = await api.post("/orders", { shippingAddress: address });
+      
+      // Debug: Log created order items
+      console.log("[Checkout] Order created with items:", data.order.items);
+      
       setOrderId(data.order._id);
       setStep(2);
     } catch (err) {
+      console.error("[Checkout] Order creation error:", err.response?.data || err.message);
       toast.error(err.response?.data?.message || "Failed to place order");
     } finally {
       setLoading(false);
@@ -172,9 +181,14 @@ const Checkout = () => {
         <div className="space-y-4">
           <div className="card">
             <h2 className="font-bold text-gray-800 mb-4">Order Review</h2>
-            {items.map((item, i) => (
+            {items.map((item, i) => {
+              // Handle images that can be either strings or {url, publicId} objects
+              const imageUrl = typeof item.product.images?.[0] === "string"
+                ? item.product.images[0]
+                : item.product.images?.[0]?.url;
+              return (
               <div key={i} className="flex items-center gap-3 mb-3">
-                <img src={item.product.images?.[0]?.url} alt={item.product.name}
+                <img src={imageUrl} alt={item.product.name}
                   className="w-12 h-12 object-cover rounded-lg" />
                 <div className="flex-1">
                   <p className="text-sm font-medium text-gray-700">{item.product.name}</p>
@@ -182,7 +196,8 @@ const Checkout = () => {
                 </div>
                 <p className="font-semibold text-sm">₹{(item.priceAtAdd * item.quantity).toLocaleString()}</p>
               </div>
-            ))}
+            );
+            })}
             <div className="border-t border-gray-100 pt-3 space-y-1 text-sm">
               <div className="flex justify-between text-gray-500">
                 <span>Subtotal</span><span>₹{subtotal.toLocaleString()}</span></div>

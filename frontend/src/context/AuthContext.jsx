@@ -23,11 +23,19 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   const login = (userData, token, sellerData = null) => {
-    localStorage.setItem("user",  JSON.stringify(userData));
+    if (!userData || !token) {
+      console.error("AuthContext.login: missing user or token", { userData, token });
+      return;
+    }
+    localStorage.setItem("user", JSON.stringify(userData));
     localStorage.setItem("token", token);
-    if (sellerData) localStorage.setItem("sellerProfile", JSON.stringify(sellerData));
+    if (sellerData) {
+      localStorage.setItem("sellerProfile", JSON.stringify(sellerData));
+    } else {
+      localStorage.removeItem("sellerProfile");
+    }
     setUser(userData);
-    setSellerProfile(sellerData);
+    setSellerProfile(sellerData || null);
   };
 
   const logout = () => {
