@@ -1,6 +1,6 @@
 // ============================================================
-//  src/pages/Checkout.jsx  —  UPDATED with Address Management
-//  Step 0: Select/Enter address
+//  src/pages/Checkout.jsx  —  ENHANCED Address Management
+//  Step 0: Select/Add address (with direct save from checkout)
 //  Step 1: Review order
 //  Step 2: Pay via Razorpay (test mode)
 // ============================================================
@@ -9,6 +9,7 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../api/axios";
 import addressService from "../services/addressService";
+import AddressForm from "../components/AddressForm";
 import { useCart } from "../context/CartContext";
 import { useAuth } from "../context/AuthContext";
 import { toast } from "react-toastify";
@@ -22,19 +23,20 @@ const Checkout = () => {
 
   const [step,    setStep]    = useState(0);
   const [loading, setLoading] = useState(false);
+  const [savingAddress, setSavingAddress] = useState(false);
   const [orderId, setOrderId] = useState(null);
 
   // Address management
   const [savedAddresses, setSavedAddresses]   = useState([]);
   const [selectedAddressId, setSelectedAddressId] = useState(null);
-  const [useNewAddress, setUseNewAddress]    = useState(false);
-  const [newAddress, setNewAddress] = useState({
+  const [showAddressForm, setShowAddressForm] = useState(false);
+  const [formData, setFormData] = useState({
     name:    user?.name    || "",
+    phone:   user?.phone   || "",
     street:  "",
     city:    "",
     state:   "",
     pincode: "",
-    phone:   user?.phone   || "",
   });
 
   // Calculate prices
@@ -54,22 +56,26 @@ const Checkout = () => {
       const data = await addressService.getAddresses();
       setSavedAddresses(data.addresses || []);
       
-      // Auto-select first address or default address
+      // If addresses exist, auto-select default or first
       if (data.addresses.length > 0) {
         const defaultAddr = data.addresses.find((a) => a.isDefault);
         setSelectedAddressId(defaultAddr?._id || data.addresses[0]._id);
-        setUseNewAddress(false);
+        setShowAddressForm(false);
+      } else {
+        // No addresses → show form
+        setShowAddressForm(true);
+        setSelectedAddressId(null);
       }
     } catch (err) {
       console.error("Error fetching addresses:", err);
-      // If no saved addresses, show new address form
-      setUseNewAddress(true);
+      setShowAddressForm(true);
+      toast.error("Failed to load addresses");
     }
   };
 
-  // Get current address object (either selected or new)
+  // Get current address object (selected saved or from form)
   const getCurrentAddress = () => {
-    if (!useNewAddress && selectedAddressId) {
+    if (selectedAddressId) {
       const addr = savedAddresses.find((a) => a._id === selectedAddressId);
       if (addr) {
         return {
@@ -82,21 +88,82 @@ const Checkout = () => {
         };
       }
     }
-    return newAddress;
+    return formData;
   };
 
-  // ── Step 0 → Step 1: Validate address ─────────────────
+  // Handle form input change
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
+  };
+
+  // Save address directly from checkout
+  const handleSaveAddressFromCheckout = async (e) => {
+    e.preventDefault();
+
+    // Validate
+    if (!formData.name || !formData.phone || !formData.street || !formData.city || !formData.state || !formData.pincode) {
+      return toast.error("Please fill all address fields");
+    }
+
+    setSavingAddress(true);
+    try {
+      const response = await addressService.addAddress({
+        ...formData,
+        label: "home",
+        isDefault: savedAddresses.length === 0,
+      });
+
+      toast.success("Address saved successfully!");
+
+      // Refresh addresses
+      await fetchSavedAddresses();
+
+      // Auto-select newly added address
+      setSelectedAddressId(response.address._id);
+      setShowAddressForm(false);
+
+      // Reset form
+      setFormData({
+        name:    user?.name || "",
+        phone:   user?.phone || "",
+        street:  "",
+        city:    "",
+        state:   "",
+        pincode: "",
+      });
+    } catch (err) {
+      console.error("Error saving address:", err);
+      toast.error(err.response?.data?.message || "Failed to save address");
+    } finally {
+      setSavingAddress(false);
+    }
+  };
+
+  // Reset form
+  const resetForm = () => {
+    setFormData({
+      name:    user?.name || "",
+      phone:   user?.phone || "",
+      street:  "",
+      city:    "",
+      state:   "",
+      pincode: "",
+    });
+    setShowAddressForm(false);
+  };
+
+  // ── Step 0 → Step 1: Validate address selection ─────────────────
   const handleAddressSubmit = (e) => {
     e.preventDefault();
-    
-    if (useNewAddress) {
-      if (Object.values(newAddress).some((v) => !v.trim())) {
-        return toast.error("Please fill all address fields");
-      }
-    } else if (!selectedAddressId) {
-      return toast.error("Please select an address");
+
+    if (!selectedAddressId) {
+      return toast.error("Please select or add an address to continue");
     }
-    
+
     setStep(1);
   };
 
@@ -198,106 +265,116 @@ const Checkout = () => {
         <form onSubmit={handleAddressSubmit} className="bg-white rounded-lg shadow-md p-6 border border-gray-200 space-y-6">
           <h2 className="font-bold text-gray-800 text-lg">Shipping Address</h2>
 
-          {/* Saved Addresses */}
+          {/* Case 1: No addresses yet */}
+          {savedAddresses.length === 0 && (
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+              <p className="text-sm text-blue-900">
+                📍 <strong>No saved addresses yet.</strong> Please add one to continue with checkout.
+              </p>
+            </div>
+          )}
+
+          {/* Saved Addresses (if any exist) */}
           {savedAddresses.length > 0 && (
             <div>
-              <h3 className="font-semibold text-gray-700 mb-3">Your Saved Addresses</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
+              <div className="flex justify-between items-center mb-3">
+                <h3 className="font-semibold text-gray-700">Your Saved Addresses</h3>
+              </div>
+              <div className="space-y-2 mb-4">
                 {savedAddresses.map((addr) => (
                   <label
                     key={addr._id}
-                    className={`p-3 border-2 rounded-lg cursor-pointer transition ${
-                      selectedAddressId === addr._id
+                    className={`block p-4 border-2 rounded-lg cursor-pointer transition ${
+                      selectedAddressId === addr._id && !showAddressForm
                         ? "border-blue-600 bg-blue-50"
                         : "border-gray-200 hover:border-gray-300"
                     }`}
                   >
-                    <input
-                      type="radio"
-                      name="address"
-                      value={addr._id}
-                      checked={selectedAddressId === addr._id && !useNewAddress}
-                      onChange={() => {
-                        setSelectedAddressId(addr._id);
-                        setUseNewAddress(false);
-                      }}
-                      className="mr-2"
-                    />
-                    <div className="inline-block">
-                      {addr.isDefault && (
-                        <span className="text-xs font-semibold text-blue-600 bg-blue-100 px-2 py-0.5 rounded mr-2">
-                          DEFAULT
-                        </span>
-                      )}
-                      <p className="font-medium text-gray-900">{addr.name}</p>
-                      <p className="text-sm text-gray-600">{addr.street}</p>
-                      <p className="text-sm text-gray-600">
-                        {addr.city}, {addr.state} {addr.pincode}
-                      </p>
-                      <p className="text-sm text-gray-600 font-medium">{addr.phone}</p>
+                    <div className="flex items-start gap-3">
+                      <input
+                        type="radio"
+                        name="address"
+                        value={addr._id}
+                        checked={selectedAddressId === addr._id && !showAddressForm}
+                        onChange={() => {
+                          setSelectedAddressId(addr._id);
+                          setShowAddressForm(false);
+                        }}
+                        className="mt-1"
+                      />
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-1">
+                          <p className="font-semibold text-gray-900">{addr.name}</p>
+                          {addr.isDefault && (
+                            <span className="text-xs font-semibold text-blue-600 bg-blue-100 px-2 py-0.5 rounded">
+                              DEFAULT
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-sm text-gray-600">{addr.street}</p>
+                        <p className="text-sm text-gray-600">
+                          {addr.city}, {addr.state} {addr.pincode}
+                        </p>
+                        <p className="text-sm text-gray-600 font-medium mt-1">📞 {addr.phone}</p>
+                      </div>
                     </div>
                   </label>
                 ))}
               </div>
 
-              <button
-                type="button"
-                onClick={() => setUseNewAddress(true)}
-                className="text-blue-600 hover:text-blue-700 font-medium text-sm mb-4"
-              >
-                + Use a Different Address
-              </button>
+              {/* Toggle add new address */}
+              {!showAddressForm && (
+                <button
+                  type="button"
+                  onClick={() => setShowAddressForm(true)}
+                  className="text-blue-600 hover:text-blue-700 font-medium text-sm mb-4"
+                >
+                  + Add a Different Address
+                </button>
+              )}
             </div>
           )}
 
-          {/* New Address Form */}
-          {useNewAddress && (
-            <div className="bg-gray-50 p-4 rounded-lg space-y-4 border-2 border-blue-200">
-              <div className="flex justify-between items-center">
-                <h3 className="font-semibold text-gray-700">Enter New Address</h3>
+          {/* Address Form - Show when: no addresses OR user clicks "add new" */}
+          {showAddressForm && (
+            <div>
+              <div className="flex justify-between items-center mb-3">
+                <h3 className="font-semibold text-gray-800">
+                  {savedAddresses.length === 0 ? "Add Address to Continue" : "Add New Address"}
+                </h3>
                 {savedAddresses.length > 0 && (
                   <button
                     type="button"
                     onClick={() => {
-                      setUseNewAddress(false);
-                      setSelectedAddressId(savedAddresses[0]._id);
+                      setShowAddressForm(false);
+                      resetForm();
                     }}
-                    className="text-sm text-blue-600 hover:text-blue-700"
+                    className="text-sm text-gray-500 hover:text-gray-700"
                   >
-                    ← Back to Saved
+                    ✕
                   </button>
                 )}
               </div>
 
-              {[
-                { label: "Full Name", field: "name", type: "text" },
-                { label: "Phone", field: "phone", type: "tel" },
-                { label: "Street Address", field: "street", type: "text" },
-                { label: "City", field: "city", type: "text" },
-                { label: "State", field: "state", type: "text" },
-                { label: "PIN Code", field: "pincode", type: "text" },
-              ].map(({ label, field, type }) => (
-                <div key={field}>
-                  <label className="text-sm font-medium text-gray-700 block mb-1">{label}</label>
-                  <input
-                    type={type}
-                    value={newAddress[field]}
-                    onChange={(e) => setNewAddress((a) => ({ ...a, [field]: e.target.value }))}
-                    placeholder={label}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-600 focus:border-transparent"
-                    required
-                  />
-                </div>
-              ))}
+              <AddressForm
+                formData={formData}
+                onInputChange={handleInputChange}
+                onSubmit={handleSaveAddressFromCheckout}
+                onCancel={resetForm}
+                loading={savingAddress}
+                submitLabel={savingAddress ? "Saving..." : "Save & Use This Address"}
+                showCancel={savedAddresses.length > 0}
+              />
             </div>
           )}
 
-          {/* Submit Button */}
+          {/* Submit Button - Disabled if no address selected */}
           <button
             type="submit"
-            className="w-full bg-blue-600 text-white font-semibold py-3 rounded-lg hover:bg-blue-700 transition"
+            disabled={!selectedAddressId}
+            className="w-full bg-blue-600 text-white font-semibold py-3 rounded-lg hover:bg-blue-700 transition disabled:bg-gray-300 disabled:cursor-not-allowed"
           >
-            Continue to Review →
+            {selectedAddressId ? "Continue to Review →" : "Please Select or Add an Address"}
           </button>
         </form>
       )}
