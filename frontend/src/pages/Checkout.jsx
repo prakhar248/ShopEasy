@@ -117,6 +117,12 @@ const Checkout = () => {
         isDefault: savedAddresses.length === 0,
       });
 
+      console.log("[Checkout] Address saved response:", response);
+
+      if (!response.address || !response.address._id) {
+        throw new Error("Address saved but missing ID in response");
+      }
+
       toast.success("Address saved successfully!");
 
       // Refresh addresses
@@ -136,7 +142,7 @@ const Checkout = () => {
         pincode: "",
       });
     } catch (err) {
-      console.error("Error saving address:", err);
+      console.error("Error saving address:", err?.response?.data || err.message);
       toast.error(err.response?.data?.message || "Failed to save address");
     } finally {
       setSavingAddress(false);

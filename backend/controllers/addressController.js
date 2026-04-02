@@ -65,10 +65,13 @@ exports.addAddress = async (req, res) => {
     user.addresses.push(newAddress);
     await user.save();
 
+    // Get the saved address (with MongoDB _id) from the user document
+    const savedAddress = user.addresses[user.addresses.length - 1];
+
     res.status(201).json({
       success: true,
       message: "Address added successfully",
-      address: newAddress,
+      address: savedAddress,
     });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
