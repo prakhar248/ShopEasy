@@ -55,6 +55,25 @@ const userSchema = new mongoose.Schema(
       default: "https://res.cloudinary.com/demo/image/upload/v1/default-avatar.png",
     },
     phone: { type: String, default: "" },
+
+    // Addresses for delivery
+    addresses: [
+      {
+        label: {
+          type:    String,
+          enum:    ["home", "work", "other"],
+          default: "home",
+        },
+        name:      { type: String, required: true },
+        street:    { type: String, required: true },
+        city:      { type: String, required: true },
+        state:     { type: String, required: true },
+        pincode:   { type: String, required: true },
+        phone:     { type: String, required: true },
+        isDefault: { type: Boolean, default: false },
+        createdAt: { type: Date, default: Date.now },
+      },
+    ],
   },
   { timestamps: true }
 );

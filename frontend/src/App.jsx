@@ -20,6 +20,7 @@ import Auth from "./pages/Auth";
 import Checkout from "./pages/Checkout";
 import Orders from "./pages/Orders";
 import Profile from "./pages/Profile";
+import AddressPage from "./pages/AddressPage";
 import SellerDashboard from "./pages/SellerDashboard";
 import AdminDashboard from "./pages/AdminDashboard";
 import CreateProductPage from "./pages/CreateProductPage";
@@ -46,6 +47,7 @@ function App() {
             <Route path="/checkout" element={<ProtectedRoute><Checkout /></ProtectedRoute>} />
             <Route path="/orders" element={<ProtectedRoute><Orders /></ProtectedRoute>} />
             <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
+            <Route path="/addresses" element={<ProtectedRoute><AddressPage /></ProtectedRoute>} />
 
             {/* ───────── SELLER ───────── */}
             <Route

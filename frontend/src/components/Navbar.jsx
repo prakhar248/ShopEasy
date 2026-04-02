@@ -66,6 +66,13 @@ const Navbar = () => {
                 {isAdmin ? "Admin" : isSeller ? "Seller" : "Customer"}
               </span>
 
+              {/* Addresses link — for customers */}
+              {(!isAdmin && !isSeller) && (
+                <Link to="/addresses" className="text-sm text-gray-600 hover:text-brand transition-colors hidden md:block">
+                  📍 Addresses
+                </Link>
+              )}
+
               {/* Profile link */}
               <Link to="/profile" className="flex items-center gap-2 text-sm text-gray-700 hover:text-brand">
                 <img src={user.avatar} alt={user.name}
