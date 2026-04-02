@@ -104,31 +104,42 @@ const Checkout = () => {
   const handleSaveAddressFromCheckout = async (e) => {
     e.preventDefault();
 
+    console.log("💾 Save address handler called");
+    console.log("📋 Form data:", formData);
+
     // Validate
     if (!formData.name || !formData.phone || !formData.street || !formData.city || !formData.state || !formData.pincode) {
+      console.log("❌ Validation failed - missing fields");
       return toast.error("Please fill all address fields");
     }
 
+    console.log("✅ Validation passed");
     setSavingAddress(true);
+
     try {
+      console.log("📤 Sending POST request to /api/addresses");
       const response = await addressService.addAddress({
         ...formData,
         label: "home",
         isDefault: savedAddresses.length === 0,
       });
 
-      console.log("[Checkout] Address saved response:", response);
+      console.log("✨ Address saved response:", response);
 
       if (!response.address || !response.address._id) {
+        console.error("❌ Response missing address._id:", response);
         throw new Error("Address saved but missing ID in response");
       }
 
+      console.log("📌 Address ID received:", response.address._id);
       toast.success("Address saved successfully!");
 
       // Refresh addresses
+      console.log("🔄 Refreshing address list...");
       await fetchSavedAddresses();
 
       // Auto-select newly added address
+      console.log("✔️ Selecting newly added address:", response.address._id);
       setSelectedAddressId(response.address._id);
       setShowAddressForm(false);
 
@@ -141,8 +152,10 @@ const Checkout = () => {
         state:   "",
         pincode: "",
       });
+
+      console.log("🎉 Address save complete!");
     } catch (err) {
-      console.error("Error saving address:", err?.response?.data || err.message);
+      console.error("❌ Error saving address:", err?.response?.data || err.message);
       toast.error(err.response?.data?.message || "Failed to save address");
     } finally {
       setSavingAddress(false);

@@ -1,6 +1,7 @@
 // ============================================================
 //  src/components/AddressForm.jsx
 //  Reusable address form for Checkout & AddressPage
+//  NOTE: This is NOT a form element to prevent nested <form> bugs
 // ============================================================
 
 const AddressForm = ({
@@ -12,8 +13,14 @@ const AddressForm = ({
   submitLabel = "Save Address",
   showCancel = true,
 }) => {
+  const handleSubmitClick = (e) => {
+    e.preventDefault();
+    console.log("🔘 Address form submit clicked, formData:", formData);
+    onSubmit(e);
+  };
+
   return (
-    <form onSubmit={onSubmit} className="bg-gray-50 p-5 rounded-lg space-y-4 border border-gray-200">
+    <div className="bg-gray-50 p-5 rounded-lg space-y-4 border border-gray-200">
       {/* Full Name */}
       <div>
         <label className="text-sm font-medium text-gray-700 block mb-1">
@@ -113,7 +120,8 @@ const AddressForm = ({
       {/* Form Actions */}
       <div className="flex gap-3 pt-2">
         <button
-          type="submit"
+          type="button"
+          onClick={handleSubmitClick}
           disabled={loading}
           className="flex-1 px-4 py-2.5 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
         >
@@ -129,7 +137,7 @@ const AddressForm = ({
           </button>
         )}
       </div>
-    </form>
+    </div>
   );
 };
 
