@@ -183,60 +183,81 @@ const Checkout = () => {
       return toast.error("Please select or add an address to continue");
     }
 
+    if (items.length === 0) {
+      return toast.error("Your cart is empty");
+    }
+
     setStep(1);
   };
 
-  // ── Step 1 → Step 2: Place order in DB ────────────────
-  const handlePlaceOrder = async () => {
+  // ── Consolidated Payment Flow ────────────────────────────────────
+  // Step 1 → 2: Create order + Razorpay order + Open Payment
+  const handlePayNow = async () => {
     setLoading(true);
     try {
       const shippingAddress = getCurrentAddress();
-      
-      const { data } = await api.post("/orders", { shippingAddress });
-      setOrderId(data.order._id);
-      setStep(2);
-    } catch (err) {
-      console.error("[Checkout] Order creation error:", err.response?.data || err.message);
-      toast.error(err.response?.data?.message || "Failed to place order");
-    } finally {
-      setLoading(false);
-    }
-  };
 
-  // ── Step 2: Initialize Razorpay checkout ──────────────
-  const handlePayment = async () => {
-    setLoading(true);
-    try {
-      const { data } = await api.post("/payment/create-order", { orderId });
+      console.log("💳 Payment flow started");
+      console.log("📦 Cart items:", items.length);
+      console.log("📍 Shipping address:", shippingAddress);
 
-      const shippingAddress = getCurrentAddress();
+      // Step 1: Create order in MongoDB
+      console.log("📤 1. Creating order in database...");
+      const { data: orderData } = await api.post("/orders", { shippingAddress });
+      const createdOrder = orderData.order;
+
+      if (!createdOrder || !createdOrder._id) {
+        throw new Error("Order creation failed - Missing order ID");
+      }
+
+      console.log("✅ 1. Order created:", createdOrder._id);
+      setOrderId(createdOrder._id);
+
+      // Step 2: Create Razorpay order
+      console.log("📤 2. Creating Razorpay order...");
+      const { data: paymentData } = await api.post("/payment/create-order", {
+        orderId: createdOrder._id,
+      });
+
+      console.log("✅ 2. Razorpay order created:", paymentData.razorpayOrderId);
+
+      // Step 3: Open Razorpay checkout
+      console.log("📤 3. Opening Razorpay checkout...");
+
       const options = {
-        key:         data.keyId,
-        amount:      data.amount,
-        currency:    data.currency,
-        name:        "ShopNow",
-        description: `Order #${orderId}`,
-        order_id:    data.razorpayOrderId,
+        key: paymentData.keyId,
+        amount: paymentData.amount,
+        currency: paymentData.currency,
+        name: "ShopNow",
+        description: `Order #${createdOrder._id}`,
+        order_id: paymentData.razorpayOrderId,
 
         handler: async (response) => {
           try {
+            console.log("✨ Payment response received:", response);
+            console.log("📤 3. Verifying payment with backend...");
+
+            // Step 4: Verify payment signature
             await api.post("/payment/verify", {
-              razorpay_order_id:   response.razorpay_order_id,
+              razorpay_order_id: response.razorpay_order_id,
               razorpay_payment_id: response.razorpay_payment_id,
-              razorpay_signature:  response.razorpay_signature,
-              orderId,
+              razorpay_signature: response.razorpay_signature,
+              orderId: createdOrder._id,
             });
+
+            console.log("✅ 3. Payment verified!");
             clearCart();
-            toast.success("Payment successful! 🎉");
+            toast.success("🎉 Payment successful! Your order is confirmed.");
             navigate("/orders");
-          } catch {
-            toast.error("Payment verification failed. Contact support.");
+          } catch (verifyErr) {
+            console.error("❌ Payment verification failed:", verifyErr);
+            toast.error("Payment verification failed. Please contact support.");
           }
         },
 
         prefill: {
-          name:    user.name,
-          email:   user.email,
+          name: user.name,
+          email: user.email,
           contact: shippingAddress.phone,
         },
 
@@ -244,12 +265,17 @@ const Checkout = () => {
       };
 
       const rzp = new window.Razorpay(options);
+
       rzp.on("payment.failed", (response) => {
+        console.error("❌ Payment failed:", response.error);
         toast.error(`Payment failed: ${response.error.description}`);
       });
+
       rzp.open();
+      console.log("✅ Razorpay checkout opened");
     } catch (err) {
-      toast.error(err.response?.data?.message || "Payment initialization failed");
+      console.error("❌ Payment flow error:", err?.response?.data || err.message);
+      toast.error(err.response?.data?.message || "Failed to process payment");
     } finally {
       setLoading(false);
     }
@@ -445,30 +471,26 @@ const Checkout = () => {
 
           <div className="flex gap-3">
             <button onClick={() => setStep(0)} className="flex-1 py-3 bg-gray-200 text-gray-700 font-semibold rounded-lg hover:bg-gray-300 transition">
-              ← Back
+              ← Back to Address
             </button>
-            <button onClick={handlePlaceOrder} disabled={loading} className="flex-1 py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition disabled:opacity-50">
-              {loading ? "Placing..." : "Place Order →"}
+            <button
+              onClick={handlePayNow}
+              disabled={loading || items.length === 0}
+              className="flex-1 py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition disabled:bg-gray-400 disabled:cursor-not-allowed"
+            >
+              {loading ? "Processing..." : "💳 Pay Now"}
             </button>
           </div>
         </div>
       )}
 
-      {/* ── STEP 2: Payment ────────────────────────────── */}
-      {step === 2 && (
-        <div className="bg-white rounded-lg shadow-md p-12 border border-gray-200 text-center">
-          <p className="text-5xl mb-4">🔒</p>
-          <h2 className="text-xl font-bold text-gray-800 mb-2">Ready to Pay</h2>
-          <p className="text-gray-500 text-sm mb-6">
-            Your order is placed. Complete payment via Razorpay (test mode).
-          </p>
-          <p className="text-3xl font-bold text-blue-600 mb-6">₹{grandTotal.toLocaleString()}</p>
-          <button onClick={handlePayment} disabled={loading} className="w-full bg-blue-600 text-white font-semibold py-4 text-lg rounded-lg hover:bg-blue-700 transition disabled:opacity-50">
-            {loading ? "Opening Razorpay..." : "Pay Now with Razorpay"}
-          </button>
-          <p className="text-xs text-gray-400 mt-4">
-            Test card: 4111 1111 1111 1111 · Expiry: any future · CVV: any 3 digits
-          </p>
+      {/* ── PAYMENT INFO HELP ────────────────────────────── */}
+      {step === 1 && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mt-6 text-sm text-blue-900">
+          <p className="font-semibold mb-2">🧪 Test Card Information</p>
+          <p>Card: <code className="bg-blue-100 px-2 py-1 rounded">4111 1111 1111 1111</code></p>
+          <p>Expiry: Any future date</p>
+          <p>CVV: Any 3 digits</p>
         </div>
       )}
     </div>
