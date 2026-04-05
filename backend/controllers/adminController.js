@@ -13,6 +13,7 @@ const Seller  = require("../models/Seller");
 const Product = require("../models/Product");
 const Order   = require("../models/Order");
 const { cloudinary } = require("../config/cloudinary");
+const sendEmail = require("../utils/sendEmail");
 
 // ============================================================
 //  @desc    Get platform-wide stats for admin dashboard
@@ -139,12 +140,31 @@ exports.approveSeller = async (req, res, next) => {
     seller.approvedAt  = Date.now();
     await seller.save();
 
-    // Notify seller by email (optional but professional)
-    // sendEmail({
-    //   to: seller.user.email,
-    //   subject: "Your seller account is approved!",
-    //   html: `<p>Hi ${seller.user.name}, your store "${seller.storeName}" is now active!</p>`
-    // });
+    // Send seller approval email
+    try {
+      await sendEmail(
+        seller.user.email,
+        "🎉 Your Store Has Been Approved - ShopNow",
+        `<p>Hi ${seller.user.name},</p>
+         <p>Congratulations! Your seller account has been approved!</p>
+         <p><strong>Store Name:</strong> ${seller.storeName}</p>
+         <p>Your store is now active and you can start listing products.</p>
+         <br/>
+         <p><strong>Next Steps:</strong></p>
+         <ul>
+           <li>Log in to your seller dashboard</li>
+           <li>Add your products with descriptions and images</li>
+           <li>Set your pricing and manage inventory</li>
+           <li>Monitor orders and customer reviews</li>
+         </ul>
+         <br/>
+         <p>Best of luck with your store! We're excited to have you as part of ShopNow.</p>
+         <p>If you have any questions, feel free to contact our support team.</p>`
+      );
+      console.log("✅ Seller approval email sent to:", seller.user.email);
+    } catch (emailError) {
+      console.error("Failed to send seller approval email:", emailError);
+    }
 
     res.status(200).json({ success: true, message: "Seller approved successfully.", seller });
   } catch (error) {

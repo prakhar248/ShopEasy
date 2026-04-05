@@ -1,6 +1,6 @@
 // ============================================================
 //  controllers/paymentController.js
-//  Razorpay integration (test mode)
+//  Razorpay integration (test mode) with email notifications
 //
 //  FLOW:
 //  1. Order is created in DB first via /api/orders
@@ -8,12 +8,13 @@
 //  3. This creates a Razorpay order for that orderId
 //  4. Frontend opens Razorpay checkout and user pays
 //  5. Frontend sends payment details to /api/payment/verify
-//  6. We verify signature and mark order as paid
+//  6. We verify signature and mark order as paid + send email
 // ============================================================
 
 const Razorpay = require("razorpay");
 const crypto   = require("crypto");
 const Order    = require("../models/Order");
+const sendEmail = require("../utils/sendEmail");
 
 // Initialize Razorpay with test keys from .env
 const razorpay = new Razorpay({
@@ -121,13 +122,13 @@ exports.verifyPayment = async (req, res, next) => {
     }
 
     // 3. Fetch and verify the order
-    const order = await Order.findById(orderId);
+    const order = await Order.findById(orderId).populate("user", "email name");
     if (!order) {
       return res.status(404).json({ success: false, message: "Order not found" });
     }
 
     // Verify order belongs to this user
-    if (order.user.toString() !== req.user._id.toString()) {
+    if (order.user._id.toString() !== req.user._id.toString()) {
       return res.status(403).json({ success: false, message: "Unauthorized - Order does not belong to you" });
     }
 
@@ -137,6 +138,27 @@ exports.verifyPayment = async (req, res, next) => {
     order.razorpaySignature  = razorpay_signature;
     order.paidAt             = new Date();
     await order.save();
+
+    // Send payment success email
+    try {
+      await sendEmail(
+        order.user.email,
+        "Payment Successful - Order Confirmed! ✅",
+        `<p>Hi ${order.user.name},</p>
+         <p>Your payment has been received and confirmed!</p>
+         <p><strong>Order ID:</strong> ${order._id}</p>
+         <p><strong>Amount Paid:</strong> ₹${order.totalPrice}</p>
+         <p><strong>Payment ID:</strong> ${razorpay_payment_id}</p>
+         <br/>
+         <p>Your order is now confirmed and will be processed by our team.</p>
+         <p>You will receive a shipping notification once your items are dispatched.</p>
+         <br/>
+         <p>Thank you for shopping with ShopNow!</p>`
+      );
+      console.log("✅ Payment success email sent to:", order.user.email);
+    } catch (emailError) {
+      console.error("Failed to send payment success email:", emailError);
+    }
 
     console.log("✅ Payment verified for order:", orderId);
 

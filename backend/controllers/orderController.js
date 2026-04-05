@@ -1,9 +1,10 @@
 // ============================================================
-//  controllers/orderController.js  —  UPDATED: snapshot seller on items
+//  controllers/orderController.js  —  UPDATED: snapshot seller + email notifications
 // ============================================================
 const Order   = require("../models/Order");
 const Cart    = require("../models/Cart");
 const Product = require("../models/Product");
+const sendEmail = require("../utils/sendEmail");
 
 exports.placeOrder = async (req, res, next) => {
   try {
@@ -56,6 +57,25 @@ exports.placeOrder = async (req, res, next) => {
     cart.items = [];
     await cart.save();
 
+    // Send order confirmation email
+    try {
+      await sendEmail(
+        req.user.email,
+        "Order Confirmation - ShopNow",
+        `<p>Hi ${req.user.name},</p>
+         <p>Your order has been placed successfully!</p>
+         <p><strong>Order ID:</strong> ${order._id}</p>
+         <p><strong>Total Amount:</strong> ₹${order.totalPrice}</p>
+         <p><strong>Status:</strong> Awaiting Payment</p>
+         <p>Please proceed to payment to confirm your order.</p>
+         <br/>
+         <p>Thank you for shopping with ShopNow!</p>`
+      );
+      console.log("✅ Order confirmation email sent to:", req.user.email);
+    } catch (emailError) {
+      console.error("Failed to send order confirmation email:", emailError);
+    }
+
     res.status(201).json({ success: true, order });
   } catch (error) {
     next(error);
@@ -102,13 +122,55 @@ exports.updateOrderStatus = async (req, res, next) => {
   try {
     const { status } = req.body;
 
-    const order = await Order.findById(req.params.id);
+    const order = await Order.findById(req.params.id).populate("user", "email name");
     if (!order) {
       return res.status(404).json({ success: false, message: "Order not found" });
     }
 
+    const previousStatus = order.status;
     order.status = status;
     await order.save();
+
+    // Send email notification when order is shipped
+    if (status === "shipped" && previousStatus !== "shipped") {
+      try {
+        await sendEmail(
+          order.user.email,
+          "Your Order Has Been Shipped! 📦",
+          `<p>Hi ${order.user.name},</p>
+           <p>Great news! Your order has been shipped.</p>
+           <p><strong>Order ID:</strong> ${order._id}</p>
+           <p>Your package is on its way and should arrive soon.</p>
+           <p>You can track your order status anytime in your account dashboard.</p>
+           <br/>
+           <p>Thank you for your patience!</p>
+           <p>ShopNow Team</p>`
+        );
+        console.log("✅ Shipped email sent to:", order.user.email);
+      } catch (emailError) {
+        console.error("Failed to send shipped email:", emailError);
+      }
+    }
+
+    // Send email when order is delivered
+    if (status === "delivered" && previousStatus !== "delivered") {
+      try {
+        await sendEmail(
+          order.user.email,
+          "Your Order Has Been Delivered! 🎉",
+          `<p>Hi ${order.user.name},</p>
+           <p>Your order has been delivered!</p>
+           <p><strong>Order ID:</strong> ${order._id}</p>
+           <p>We hope you enjoy your purchase. Your satisfaction is important to us.</p>
+           <p>Please share your feedback in the product reviews - your reviews help other customers!</p>
+           <br/>
+           <p>Thank you for shopping with ShopNow!</p>`
+        );
+        console.log("✅ Delivered email sent to:", order.user.email);
+      } catch (emailError) {
+        console.error("Failed to send delivered email:", emailError);
+      }
+    }
 
     res.status(200).json({ success: true, order });
   } catch (error) {
