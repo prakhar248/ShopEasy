@@ -3,7 +3,7 @@
 //  Shows full product details, image gallery, reviews, add-to-cart, buy now
 // ============================================================
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import api from "../api/axios";
 import { useCart } from "../context/CartContext";
@@ -105,52 +105,73 @@ const ProductDetail = () => {
     ? product.images[activeImg]
     : product.images?.[activeImg]?.url;
 
+  // Performance-optimized RAF handler for smooth zoom
+  const rafIdRef = useRef(null);
+
   const handleMouseMove = (e) => {
-    const rect = e.currentTarget.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
-    const width = rect.width;
-    const height = rect.height;
+    // Cancel previous frame if still pending
+    if (rafIdRef.current) {
+      cancelAnimationFrame(rafIdRef.current);
+    }
 
-    const lensSize = 150;
+    rafIdRef.current = requestAnimationFrame(() => {
+      const rect = e.currentTarget.getBoundingClientRect();
 
-    let lensX = x - lensSize / 2;
-    let lensY = y - lensSize / 2;
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
 
-    // Clamp lens inside image boundaries
-    lensX = Math.max(0, Math.min(lensX, width - lensSize));
-    lensY = Math.max(0, Math.min(lensY, height - lensSize));
+      const lensSize = 150;
 
-    const xPercent = (lensX / width) * 100;
-    const yPercent = (lensY / height) * 100;
+      let lensX = x - lensSize / 2;
+      let lensY = y - lensSize / 2;
 
-    // Lens overlay style
-    setLensStyle({
-      left: `${lensX}px`,
-      top: `${lensY}px`,
-      width: `${lensSize}px`,
-      height: `${lensSize}px`,
-    });
+      // Clamp lens strictly inside image boundaries
+      lensX = Math.max(0, Math.min(lensX, rect.width - lensSize));
+      lensY = Math.max(0, Math.min(lensY, rect.height - lensSize));
 
-    // Zoom panel style (300% zoom for better detail)
-    setZoomStyle({
-      backgroundImage: `url(${imageUrl})`,
-      backgroundPosition: `${xPercent}% ${yPercent}%`,
-      backgroundSize: "300%",
+      // CRITICAL: Calculate zoom center (lens center) not lens top-left
+      const xPercent = ((lensX + lensSize / 2) / rect.width) * 100;
+      const yPercent = ((lensY + lensSize / 2) / rect.height) * 100;
+
+      // Update lens position (using pixels for precision)
+      setLensStyle({
+        left: lensX,
+        top: lensY,
+        width: lensSize,
+        height: lensSize,
+      });
+
+      // Update zoom panel (200% magnification - Amazon style)
+      setZoomStyle({
+        backgroundImage: `url(${imageUrl})`,
+        backgroundPosition: `${xPercent}% ${yPercent}%`,
+        backgroundSize: "200%",
+      });
+
+      rafIdRef.current = null;
     });
   };
+
+  // Cleanup on component unmount
+  useEffect(() => {
+    return () => {
+      if (rafIdRef.current) {
+        cancelAnimationFrame(rafIdRef.current);
+      }
+    };
+  }, []);
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-10">
       <div className="grid md:grid-cols-2 gap-10">
 
-        {/* ── Image Gallery with Amazon-Style Zoom ───────────────────────────────── */}
+        {/* ── Image Gallery with Amazon-Style Magnifier ───────────────────────────────── */}
         <div>
-          <div className="flex gap-6">
-            {/* LEFT: Main Image with Lens Overlay */}
+          <div className="flex gap-8">
+            {/* LEFT: Main Image with Lens */}
             <div className="flex-1">
               <div
-                className="relative aspect-square rounded-2xl overflow-hidden bg-gray-100 mb-3 cursor-crosshair transition-all duration-200"
+                className="relative aspect-square rounded-lg overflow-hidden bg-gray-100 mb-3 cursor-crosshair hover:ring-1 hover:ring-gray-400 transition-all duration-200"
                 onMouseMove={handleMouseMove}
                 onMouseEnter={() => setShowZoom(true)}
                 onMouseLeave={() => setShowZoom(false)}
@@ -161,24 +182,29 @@ const ProductDetail = () => {
                   className="w-full h-full object-cover"
                 />
 
-                {/* Semi-transparent Lens Overlay */}
+                {/* Clean Amazon-Style Lens */}
                 {showZoom && (
                   <div
-                    className="absolute bg-white/25 border-2 border-gray-400 pointer-events-none transition-all duration-75"
-                    style={lensStyle}
+                    className="absolute bg-gray-200/40 border border-gray-400 pointer-events-none"
+                    style={{
+                      left: `${lensStyle.left}px`,
+                      top: `${lensStyle.top}px`,
+                      width: `${lensStyle.width}px`,
+                      height: `${lensStyle.height}px`,
+                    }}
                   />
                 )}
               </div>
 
               {/* Thumbnail Gallery */}
               {product.images.length > 1 && (
-                <div className="flex gap-2">
+                <div className="flex gap-2 flex-wrap">
                   {product.images.map((img, i) => (
                     <button
                       key={i}
                       onClick={() => setActiveImg(i)}
-                      className={`w-16 h-16 rounded-lg overflow-hidden border-2 transition-colors
-                        ${activeImg === i ? "border-brand" : "border-transparent hover:border-gray-300"}`}
+                      className={`w-16 h-16 rounded overflow-hidden border transition-all
+                        ${activeImg === i ? "border-gray-400" : "border-gray-200 hover:border-gray-400"}`}
                     >
                       <img
                         src={typeof img === "string" ? img : img.url}
@@ -191,9 +217,9 @@ const ProductDetail = () => {
               )}
             </div>
 
-            {/* RIGHT: Zoomed Image Panel (hidden on mobile) */}
-            {showZoom && (
-              <div className="hidden lg:block w-96 h-96 border-2 border-gray-300 rounded-2xl overflow-hidden bg-gray-50 sticky top-10 shadow-md">
+            {/* RIGHT: Clean Amazon-Style Zoom Panel (Desktop Only) */}
+            {showZoom && imageUrl && (
+              <div className="hidden lg:block w-[500px] h-[500px] border border-gray-300 overflow-hidden bg-white">
                 <div
                   className="w-full h-full bg-no-repeat transition-all duration-75"
                   style={zoomStyle}
