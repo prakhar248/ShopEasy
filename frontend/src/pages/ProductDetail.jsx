@@ -210,105 +210,106 @@ const ProductDetail = () => {
           )}
         </div>
 
-        {/* COL 3: ZOOM PREVIEW (RIGHT OF IMAGE) */}
-        <div className="col-span-3 hidden lg:block">
+        {/* COL 3: PRODUCT INFO (FAR RIGHT) WITH OVERLAY ZOOM */}
+        <div className="col-span-4 relative h-fit">
+          {/* PRODUCT DETAILS (HIDDEN WHEN ZOOM IS ACTIVE) */}
+          <div className={`transition-opacity duration-150 ${showZoom ? "opacity-0" : "opacity-100"}`}>
+            <span className="text-sm font-medium text-orange-600">{product.category}</span>
+            
+            <h1 className="text-2xl font-semibold text-gray-800">{product.name}</h1>
+
+            {/* Rating */}
+            <div className="flex items-center gap-2">
+              <span className="text-yellow-400 text-lg">
+                {"★".repeat(Math.round(product.rating))}{"☆".repeat(5 - Math.round(product.rating))}
+              </span>
+              <span className="text-gray-500 text-sm">({product.numReviews} reviews)</span>
+            </div>
+
+            {/* Seller */}
+            <p className="text-sm text-gray-600">
+              Sold by:{" "}
+              <Link
+                to={`/seller/${product.seller?._id}`}
+                className="text-blue-600 font-semibold hover:underline"
+              >
+                {product.seller?.name}
+              </Link>
+            </p>
+
+            {/* Price */}
+            <div className="bg-gray-50 p-4 rounded-lg">
+              <div className="flex items-baseline gap-3">
+                <span className="text-3xl font-bold text-gray-800">₹{displayPrice.toLocaleString()}</span>
+                {product.discountedPrice && (
+                  <>
+                    <span className="text-gray-400 line-through text-lg">₹{product.price.toLocaleString()}</span>
+                    <span className="text-red-600 font-bold">
+                      {Math.round(((product.price - product.discountedPrice) / product.price) * 100)}% OFF
+                    </span>
+                  </>
+                )}
+              </div>
+            </div>
+
+            {/* Description */}
+            <p className="text-gray-600 text-sm leading-relaxed">{product.description}</p>
+
+            {/* Stock */}
+            <p className={`text-sm font-semibold ${product.stock > 0 ? "text-green-600" : "text-red-600"}`}>
+              {product.stock > 0 ? `✓ In Stock (${product.stock} left)` : "✗ Out of Stock"}
+            </p>
+
+            {/* Quantity */}
+            {product.stock > 0 && (
+              <div className="flex items-center gap-3">
+                <span className="text-sm font-medium">Quantity:</span>
+                <div className="flex items-center border border-gray-300 rounded-lg">
+                  <button
+                    onClick={() => setQty(q => Math.max(1, q - 1))}
+                    className="px-3 py-2 hover:bg-gray-100"
+                  >
+                    −
+                  </button>
+                  <span className="px-4 py-2 font-semibold border-x border-gray-300 min-w-12 text-center">{qty}</span>
+                  <button
+                    onClick={() => setQty(q => Math.min(product.stock, q + 1))}
+                    className="px-3 py-2 hover:bg-gray-100"
+                  >
+                    +
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Action Buttons */}
+            <div className="flex gap-3 pt-4">
+              <button
+                onClick={handleAddToCart}
+                disabled={product.stock === 0}
+                className="flex-1 bg-yellow-400 hover:bg-yellow-500 disabled:bg-gray-300 text-gray-800 font-semibold py-2 rounded-lg transition"
+              >
+                🛒 Add to Cart
+              </button>
+              <button
+                onClick={handleBuyNow}
+                disabled={product.stock === 0}
+                className="flex-1 bg-orange-500 hover:bg-orange-600 disabled:bg-gray-300 text-white font-semibold py-2 rounded-lg transition"
+              >
+                Buy Now
+              </button>
+            </div>
+          </div>
+
+          {/* OVERLAY ZOOM PANEL (APPEARS ON HOVER) */}
           {showZoom && imageUrl && (
-            <div className="w-full h-[600px] border border-gray-300 overflow-hidden bg-white rounded-lg">
+            <div className="absolute top-0 left-0 w-full h-[600px] bg-white border border-gray-300 z-50 rounded-lg overflow-hidden transition-opacity duration-150">
               <div
                 ref={zoomRef}
                 className="w-full h-full bg-no-repeat"
               />
             </div>
           )}
-        </div>
-
-        {/* COL 4: PRODUCT INFO (FAR RIGHT) */}
-        <div className="col-span-3 space-y-4">
-          <span className="text-sm font-medium text-orange-600">{product.category}</span>
-          
-          <h1 className="text-2xl font-semibold text-gray-800">{product.name}</h1>
-
-          {/* Rating */}
-          <div className="flex items-center gap-2">
-            <span className="text-yellow-400 text-lg">
-              {"★".repeat(Math.round(product.rating))}{"☆".repeat(5 - Math.round(product.rating))}
-            </span>
-            <span className="text-gray-500 text-sm">({product.numReviews} reviews)</span>
-          </div>
-
-          {/* Seller */}
-          <p className="text-sm text-gray-600">
-            Sold by:{" "}
-            <Link
-              to={`/seller/${product.seller?._id}`}
-              className="text-blue-600 font-semibold hover:underline"
-            >
-              {product.seller?.name}
-            </Link>
-          </p>
-
-          {/* Price */}
-          <div className="bg-gray-50 p-4 rounded-lg">
-            <div className="flex items-baseline gap-3">
-              <span className="text-3xl font-bold text-gray-800">₹{displayPrice.toLocaleString()}</span>
-              {product.discountedPrice && (
-                <>
-                  <span className="text-gray-400 line-through text-lg">₹{product.price.toLocaleString()}</span>
-                  <span className="text-red-600 font-bold">
-                    {Math.round(((product.price - product.discountedPrice) / product.price) * 100)}% OFF
-                  </span>
-                </>
-              )}
-            </div>
-          </div>
-
-          {/* Description */}
-          <p className="text-gray-600 text-sm leading-relaxed">{product.description}</p>
-
-          {/* Stock */}
-          <p className={`text-sm font-semibold ${product.stock > 0 ? "text-green-600" : "text-red-600"}`}>
-            {product.stock > 0 ? `✓ In Stock (${product.stock} left)` : "✗ Out of Stock"}
-          </p>
-
-          {/* Quantity */}
-          {product.stock > 0 && (
-            <div className="flex items-center gap-3">
-              <span className="text-sm font-medium">Quantity:</span>
-              <div className="flex items-center border border-gray-300 rounded-lg">
-                <button
-                  onClick={() => setQty(q => Math.max(1, q - 1))}
-                  className="px-3 py-2 hover:bg-gray-100"
-                >
-                  −
-                </button>
-                <span className="px-4 py-2 font-semibold border-x border-gray-300 min-w-12 text-center">{qty}</span>
-                <button
-                  onClick={() => setQty(q => Math.min(product.stock, q + 1))}
-                  className="px-3 py-2 hover:bg-gray-100"
-                >
-                  +
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* Action Buttons */}
-          <div className="flex gap-3 pt-4">
-            <button
-              onClick={handleAddToCart}
-              disabled={product.stock === 0}
-              className="flex-1 bg-yellow-400 hover:bg-yellow-500 disabled:bg-gray-300 text-gray-800 font-semibold py-2 rounded-lg transition"
-            >
-              🛒 Add to Cart
-            </button>
-            <button
-              onClick={handleBuyNow}
-              disabled={product.stock === 0}
-              className="flex-1 bg-orange-500 hover:bg-orange-600 disabled:bg-gray-300 text-white font-semibold py-2 rounded-lg transition"
-            >
-              Buy Now
-            </button>
-          </div>
         </div>
 
       </div>
