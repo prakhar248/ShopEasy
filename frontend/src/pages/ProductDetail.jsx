@@ -23,6 +23,8 @@ const ProductDetail = () => {
   const [rating,    setRating]    = useState(5);
   const [comment,   setComment]   = useState("");
   const [canReview, setCanReview] = useState(false);
+  const [zoomStyle, setZoomStyle] = useState({});
+  const [showZoom,  setShowZoom]  = useState(false);
 
   useEffect(() => {
     const fetch = async () => {
@@ -98,43 +100,76 @@ const ProductDetail = () => {
   if (!product) return null;
 
   const displayPrice = product.discountedPrice || product.price;
+  const imageUrl = typeof product.images?.[activeImg] === "string"
+    ? product.images[activeImg]
+    : product.images?.[activeImg]?.url;
+
+  const handleMouseMove = (e) => {
+    const { left, top, width, height } = e.currentTarget.getBoundingClientRect();
+    const x = e.clientX - left;
+    const y = e.clientY - top;
+    const xPercent = (x / width) * 100;
+    const yPercent = (y / height) * 100;
+
+    setZoomStyle({
+      backgroundImage: `url(${imageUrl})`,
+      backgroundPosition: `${xPercent}% ${yPercent}%`,
+      backgroundSize: "200%"
+    });
+  };
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-10">
       <div className="grid md:grid-cols-2 gap-10">
 
-        {/* ── Image Gallery ───────────────────────────────── */}
+        {/* ── Image Gallery with Zoom ───────────────────────────────── */}
         <div>
-          <div className="aspect-square rounded-2xl overflow-hidden bg-gray-100 mb-3">
-            <img
-              src={
-                typeof product.images[activeImg] === "string"
-                  ? product.images[activeImg]
-                  : product.images[activeImg]?.url
-              }
-              alt={product.name}
-              className="w-full h-full object-cover"
-            />
-          </div>
-          {/* Thumbnail row */}
-          {product.images.length > 1 && (
-            <div className="flex gap-2">
-              {product.images.map((img, i) => (
-                <button
-                  key={i}
-                  onClick={() => setActiveImg(i)}
-                  className={`w-16 h-16 rounded-lg overflow-hidden border-2 transition-colors
-                    ${activeImg === i ? "border-brand" : "border-transparent"}`}
-                >
-                  <img
-                    src={typeof img === "string" ? img : img.url}
-                    alt=""
-                    className="w-full h-full object-cover"
-                  />
-                </button>
-              ))}
+          <div className="flex gap-4">
+            {/* LEFT: Main Image */}
+            <div className="flex-1">
+              <div
+                className="relative aspect-square rounded-2xl overflow-hidden bg-gray-100 mb-3 cursor-zoom-in transition-all duration-200"
+                onMouseMove={handleMouseMove}
+                onMouseEnter={() => setShowZoom(true)}
+                onMouseLeave={() => setShowZoom(false)}
+              >
+                <img
+                  src={imageUrl}
+                  alt={product.name}
+                  className="w-full h-full object-cover"
+                />
+              </div>
+              {/* Thumbnail row */}
+              {product.images.length > 1 && (
+                <div className="flex gap-2">
+                  {product.images.map((img, i) => (
+                    <button
+                      key={i}
+                      onClick={() => setActiveImg(i)}
+                      className={`w-16 h-16 rounded-lg overflow-hidden border-2 transition-colors
+                        ${activeImg === i ? "border-brand" : "border-transparent"}`}
+                    >
+                      <img
+                        src={typeof img === "string" ? img : img.url}
+                        alt=""
+                        className="w-full h-full object-cover"
+                      />
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
-          )}
+
+            {/* RIGHT: Zoomed Image (hidden on mobile) */}
+            {showZoom && (
+              <div className="hidden lg:block w-96 h-96 border border-gray-300 rounded-2xl overflow-hidden bg-gray-50 sticky top-10">
+                <div
+                  className="w-full h-full bg-no-repeat transition-all duration-100"
+                  style={zoomStyle}
+                />
+              </div>
+            )}
+          </div>
         </div>
 
         {/* ── Product Info ─────────────────────────────────── */}
