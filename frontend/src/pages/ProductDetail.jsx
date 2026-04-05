@@ -32,6 +32,14 @@ const ProductDetail = () => {
   const rafIdRef = useRef(null);
   const rectRef = useRef(null);
 
+  // ✅ DERIVE imageUrl EARLY (BEFORE useEffect THAT USES IT)
+  // Safety check: fallback to empty string if no image
+  const imageUrl = typeof product?.images?.[activeImg] === "string"
+    ? product?.images?.[activeImg]
+    : product?.images?.[activeImg]?.url || "";
+  
+  console.log("📸 Image URL:", imageUrl);
+
   useEffect(() => {
     const fetch = async () => {
       try {
@@ -106,15 +114,7 @@ const ProductDetail = () => {
     };
   }, []);
 
-  // ✅ SET ZOOM BACKGROUND IMAGE (INITIALIZE ONCE)
-  useEffect(() => {
-    if (zoomRef.current && imageUrl) {
-      console.log("🖼️ Setting zoom background image:", imageUrl);
-      zoomRef.current.style.backgroundImage = `url(${imageUrl})`;
-      zoomRef.current.style.backgroundRepeat = "no-repeat";
-      zoomRef.current.style.backgroundSize = "200%";
-    }
-  }, [imageUrl]);
+  // ✅ REMOVED: Background image is now set directly in JSX (no timing issues)
 
   // ✅ CONDITIONAL RETURNS (AFTER ALL HOOKS)
   if (loading) return (
@@ -126,48 +126,23 @@ const ProductDetail = () => {
   if (!product) return null;
 
   const displayPrice = product.discountedPrice || product.price;
-  const imageUrl = typeof product.images?.[activeImg] === "string"
-    ? product.images[activeImg]
-    : product.images?.[activeImg]?.url;
 
+  // ✅ SIMPLIFIED ZOOM TRACKING - Direct cursor → background position mapping
   const handleMouseMove = (e) => {
-    // Cancel previous frame if still pending
-    if (rafIdRef.current) {
-      cancelAnimationFrame(rafIdRef.current);
-    }
+    if (!zoomRef.current) return;
 
-    rafIdRef.current = requestAnimationFrame(() => {
-      const rect = e.currentTarget.getBoundingClientRect();
+    const rect = e.currentTarget.getBoundingClientRect();
 
-      const x = e.clientX - rect.left;
-      const y = e.clientY - rect.top;
+    // Cursor position inside image
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
 
-      const lensSize = 150;
+    // Convert to percentage for background position
+    const xPercent = (x / rect.width) * 100;
+    const yPercent = (y / rect.height) * 100;
 
-      let lensX = x - lensSize / 2;
-      let lensY = y - lensSize / 2;
-
-      // Clamp lens strictly inside image boundaries
-      lensX = Math.max(0, Math.min(lensX, rect.width - lensSize));
-      lensY = Math.max(0, Math.min(lensY, rect.height - lensSize));
-
-      // CRITICAL: Calculate zoom center (lens center) not lens top-left
-      const xPercent = ((lensX + lensSize / 2) / rect.width) * 100;
-      const yPercent = ((lensY + lensSize / 2) / rect.height) * 100;
-
-      // DIRECT DOM UPDATE (NO STATE = NO RE-RENDER = ZERO LAG)
-      if (lensRef.current) {
-        lensRef.current.style.left = lensX + "px";
-        lensRef.current.style.top = lensY + "px";
-      }
-
-      // Only update position, backgroundImage is set in useEffect
-      if (zoomRef.current) {
-        zoomRef.current.style.backgroundPosition = `${xPercent}% ${yPercent}%`;
-      }
-
-      rafIdRef.current = null;
-    });
+    // Apply zoom movement (follows cursor perfectly)
+    zoomRef.current.style.backgroundPosition = `${xPercent}% ${yPercent}%`;
   };
 
   return (
@@ -316,6 +291,10 @@ const ProductDetail = () => {
               <div
                 ref={zoomRef}
                 className="w-full h-full bg-no-repeat"
+                style={{
+                  backgroundImage: `url(${imageUrl})`,
+                  backgroundSize: "200%",
+                }}
               />
             </div>
           )}
