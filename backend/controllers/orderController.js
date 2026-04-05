@@ -8,40 +8,55 @@ const sendEmail = require("../utils/sendEmail");
 
 exports.placeOrder = async (req, res, next) => {
   try {
-    const { shippingAddress } = req.body;
-    const cart = await Cart.findOne({ user: req.user.id }).populate("items.product");
+    const { shippingAddress, orderItems: directItems } = req.body;
 
-    if (!cart || cart.items.length === 0) {
-      return res.status(400).json({ success: false, message: "Cart is empty." });
-    }
+    let items = [];
+    let cart = null;
 
-    // Snapshot product details + seller on each item
-    const orderItems = cart.items.map((item) => {
-      // Handle images that can be either strings or {url, publicId} objects
-      let imageUrl = "";
-      if (item.product.images && item.product.images.length > 0) {
-        const firstImage = item.product.images[0];
-        imageUrl = typeof firstImage === "string" ? firstImage : (firstImage?.url || "");
+    // ── DETERMINE FLOW: BUY NOW OR CART CHECKOUT ─────────────────────
+    if (directItems && directItems.length > 0) {
+      // ✅ BUY NOW FLOW (Direct purchase)
+      console.log("🚀 Buy Now flow detected - items passed directly");
+      items = directItems;
+    } else {
+      // ✅ CART FLOW (Traditional checkout)
+      console.log("🛒 Cart flow detected - fetching from database");
+      cart = await Cart.findOne({ user: req.user.id }).populate("items.product");
+
+      if (!cart || cart.items.length === 0) {
+        return res.status(400).json({ success: false, message: "Cart is empty." });
       }
 
-      return {
-        product:  item.product._id,
-        seller:   item.product.seller,   // <-- seller is now stored per item
-        name:     item.product.name,
-        image:    imageUrl,              // <-- now handles both string and object formats
-        price:    item.priceAtAdd,
-        quantity: item.quantity,
-      };
-    });
+      // Snapshot product details + seller on each item
+      items = cart.items.map((item) => {
+        // Handle images that can be either strings or {url, publicId} objects
+        let imageUrl = "";
+        if (item.product.images && item.product.images.length > 0) {
+          const firstImage = item.product.images[0];
+          imageUrl = typeof firstImage === "string" ? firstImage : (firstImage?.url || "");
+        }
 
-    const itemsPrice    = cart.items.reduce((acc, i) => acc + i.priceAtAdd * i.quantity, 0);
+        return {
+          product:  item.product._id,
+          seller:   item.product.seller,   // <-- seller is now stored per item
+          name:     item.product.name,
+          image:    imageUrl,              // <-- now handles both string and object formats
+          price:    item.priceAtAdd,
+          quantity: item.quantity,
+        };
+      });
+    }
+
+    // ── CALCULATE PRICES ─────────────────────────────────────────────
+    const itemsPrice    = items.reduce((acc, i) => acc + i.price * i.quantity, 0);
     const shippingPrice = itemsPrice > 500 ? 0 : 50;
     const taxPrice      = Math.round(itemsPrice * 0.18);
     const totalPrice    = itemsPrice + shippingPrice + taxPrice;
 
+    // ── CREATE ORDER ─────────────────────────────────────────────────
     const order = await Order.create({
       user: req.user.id,
-      items: orderItems,
+      items: items,
       shippingAddress,
       itemsPrice,
       shippingPrice,
@@ -50,12 +65,21 @@ exports.placeOrder = async (req, res, next) => {
       paymentStatus: "pending",
     });
 
-    for (const item of cart.items) {
-      await Product.findByIdAndUpdate(item.product._id, { $inc: { stock: -item.quantity } });
+    console.log("✅ Order created:", order._id);
+
+    // ── UPDATE STOCK ─────────────────────────────────────────────────
+    for (const item of items) {
+      await Product.findByIdAndUpdate(item.product, { $inc: { stock: -item.quantity } });
     }
 
-    cart.items = [];
-    await cart.save();
+    console.log("✅ Stock updated for all items");
+
+    // ── CLEAR CART ONLY IF CART FLOW ─────────────────────────────────
+    if (!directItems && cart) {
+      cart.items = [];
+      await cart.save();
+      console.log("✅ Cart cleared");
+    }
 
     // Send order confirmation email
     try {

@@ -221,7 +221,19 @@ const Checkout = () => {
 
       // Step 1: Create order in MongoDB
       console.log("📤 1. Creating order in database...");
-      const { data: orderData } = await api.post("/orders", { shippingAddress });
+      
+      // Prepare payload: include orderItems only for Buy Now flow
+      const orderPayload = { shippingAddress };
+      if (buyNowItem) {
+        // BUY NOW FLOW: pass items directly
+        orderPayload.orderItems = items;
+        console.log("🚀 Buy Now detected - passing direct items to backend");
+      } else {
+        // CART FLOW: backend will fetch from cart
+        console.log("🛒 Cart flow - backend will fetch items");
+      }
+
+      const { data: orderData } = await api.post("/orders", orderPayload);
       const createdOrder = orderData.order;
 
       if (!createdOrder || !createdOrder._id) {
