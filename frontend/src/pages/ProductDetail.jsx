@@ -30,6 +30,7 @@ const ProductDetail = () => {
   const lensRef = useRef(null);
   const zoomRef = useRef(null);
   const rafIdRef = useRef(null);
+  const rectRef = useRef(null);
 
   useEffect(() => {
     const fetch = async () => {
@@ -161,222 +162,156 @@ const ProductDetail = () => {
   };
 
   return (
-    <div className="max-w-6xl mx-auto px-4 py-10">
-      <div className="grid md:grid-cols-2 gap-10">
+    <div className="max-w-full mx-auto px-4 py-10">
+      {/* ── AMAZON-STYLE 4-COLUMN LAYOUT ─────────────────────── */}
+      <div className="grid grid-cols-12 gap-6">
 
-        {/* ── Image Gallery with Amazon-Style Magnifier ───────────────────────────────── */}
-        <div>
-          <div className="flex gap-8">
-            {/* LEFT: Main Image with Lens */}
-            <div className="flex-1">
-              <div
-                className="relative aspect-square rounded-lg overflow-hidden bg-gray-100 mb-3 cursor-crosshair hover:ring-1 hover:ring-gray-400 transition-all duration-200"
-                onMouseMove={handleMouseMove}
-                onMouseEnter={() => setShowZoom(true)}
-                onMouseLeave={() => setShowZoom(false)}
-              >
-                <img
-                  src={imageUrl}
-                  alt={product.name}
-                  className="w-full h-full object-cover"
-                />
-
-                {/* Clean Amazon-Style Lens */}
-                {showZoom && (
-                  <div
-                    ref={lensRef}
-                    className="absolute bg-gray-200/40 border border-gray-400 pointer-events-none"
-                    style={{
-                      width: "150px",
-                      height: "150px",
-                    }}
-                  />
-                )}
-              </div>
-
-              {/* Thumbnail Gallery */}
-              {product.images.length > 1 && (
-                <div className="flex gap-2 flex-wrap">
-                  {product.images.map((img, i) => (
-                    <button
-                      key={i}
-                      onClick={() => setActiveImg(i)}
-                      className={`w-16 h-16 rounded overflow-hidden border transition-all
-                        ${activeImg === i ? "border-gray-400" : "border-gray-200 hover:border-gray-400"}`}
-                    >
-                      <img
-                        src={typeof img === "string" ? img : img.url}
-                        alt=""
-                        className="w-full h-full object-cover"
-                      />
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* RIGHT: Clean Amazon-Style Zoom Panel (Desktop Only) */}
-            {showZoom && imageUrl && (
-              <div className="hidden lg:block w-[500px] h-[500px] border border-gray-300 overflow-hidden bg-white">
-                <div
-                  ref={zoomRef}
-                  className="w-full h-full bg-no-repeat"
-                />
-              </div>
-            )}
-          </div>
+        {/* COL 1: THUMBNAILS (LEFT) */}
+        <div className="col-span-1 flex flex-col gap-2">
+          {product.images.map((img, i) => (
+            <img
+              key={i}
+              src={typeof img === "string" ? img : img.url}
+              alt={`${product.name} ${i + 1}`}
+              onClick={() => setActiveImg(i)}
+              className={`w-20 h-20 object-cover border-2 cursor-pointer transition hover:border-gray-400 ${
+                activeImg === i ? "border-gray-400" : "border-gray-200"
+              }`}
+            />
+          ))}
         </div>
 
-        {/* ── Product Info ─────────────────────────────────── */}
-        <div>
-          <p className="text-sm text-brand font-medium mb-2">{product.category}</p>
-          <h1 className="text-3xl font-bold text-gray-800 mb-3">{product.name}</h1>
+        {/* COL 2: MAIN IMAGE (CENTER) */}
+        <div
+          className="col-span-3 relative bg-gray-50 rounded-lg overflow-hidden cursor-crosshair"
+          onMouseMove={handleMouseMove}
+          onMouseEnter={(e) => {
+            setShowZoom(true);
+            rectRef.current = e.currentTarget.getBoundingClientRect();
+          }}
+          onMouseLeave={() => setShowZoom(false)}
+        >
+          <img
+            src={imageUrl}
+            alt={product.name}
+            className="w-full h-full object-contain min-h-[600px]"
+          />
+
+          {/* Zoom Lens */}
+          {showZoom && (
+            <div
+              ref={lensRef}
+              className="absolute bg-gray-200/40 border border-gray-400 pointer-events-none"
+              style={{
+                width: "180px",
+                height: "180px",
+              }}
+            />
+          )}
+        </div>
+
+        {/* COL 3: ZOOM PREVIEW (RIGHT OF IMAGE) */}
+        <div className="col-span-3 hidden lg:block">
+          {showZoom && imageUrl && (
+            <div className="w-full h-[600px] border border-gray-300 overflow-hidden bg-white rounded-lg">
+              <div
+                ref={zoomRef}
+                className="w-full h-full bg-no-repeat"
+              />
+            </div>
+          )}
+        </div>
+
+        {/* COL 4: PRODUCT INFO (FAR RIGHT) */}
+        <div className="col-span-3 space-y-4">
+          <span className="text-sm font-medium text-orange-600">{product.category}</span>
+          
+          <h1 className="text-2xl font-semibold text-gray-800">{product.name}</h1>
 
           {/* Rating */}
-          <div className="flex items-center gap-2 mb-4">
-            <span className="text-yellow-400">{"★".repeat(Math.round(product.rating))}{"☆".repeat(5 - Math.round(product.rating))}</span>
+          <div className="flex items-center gap-2">
+            <span className="text-yellow-400 text-lg">
+              {"★".repeat(Math.round(product.rating))}{"☆".repeat(5 - Math.round(product.rating))}
+            </span>
             <span className="text-gray-500 text-sm">({product.numReviews} reviews)</span>
           </div>
 
-          {/* Seller Info */}
-          <p className="text-sm text-gray-600 mb-4">
+          {/* Seller */}
+          <p className="text-sm text-gray-600">
             Sold by:{" "}
             <Link
               to={`/seller/${product.seller?._id}`}
-              className="text-blue-500 font-medium hover:underline"
+              className="text-blue-600 font-semibold hover:underline"
             >
               {product.seller?.name}
             </Link>
           </p>
 
           {/* Price */}
-          <div className="flex items-baseline gap-3 mb-5">
-            <span className="text-3xl font-bold text-gray-800">₹{displayPrice.toLocaleString()}</span>
-            {product.discountedPrice && (
-              <>
-                <span className="text-gray-400 line-through text-lg">₹{product.price.toLocaleString()}</span>
-                <span className="bg-red-100 text-red-600 text-sm font-bold px-2 py-0.5 rounded-full">
-                  {Math.round(((product.price - product.discountedPrice) / product.price) * 100)}% OFF
-                </span>
-              </>
-            )}
+          <div className="bg-gray-50 p-4 rounded-lg">
+            <div className="flex items-baseline gap-3">
+              <span className="text-3xl font-bold text-gray-800">₹{displayPrice.toLocaleString()}</span>
+              {product.discountedPrice && (
+                <>
+                  <span className="text-gray-400 line-through text-lg">₹{product.price.toLocaleString()}</span>
+                  <span className="text-red-600 font-bold">
+                    {Math.round(((product.price - product.discountedPrice) / product.price) * 100)}% OFF
+                  </span>
+                </>
+              )}
+            </div>
           </div>
 
-          <p className="text-gray-600 leading-relaxed mb-6">{product.description}</p>
+          {/* Description */}
+          <p className="text-gray-600 text-sm leading-relaxed">{product.description}</p>
 
-          {/* Stock status */}
-          <p className={`text-sm font-medium mb-4 ${product.stock > 0 ? "text-green-600" : "text-red-500"}`}>
+          {/* Stock */}
+          <p className={`text-sm font-semibold ${product.stock > 0 ? "text-green-600" : "text-red-600"}`}>
             {product.stock > 0 ? `✓ In Stock (${product.stock} left)` : "✗ Out of Stock"}
           </p>
 
-          {/* Quantity selector */}
+          {/* Quantity */}
           {product.stock > 0 && (
-            <div className="flex items-center gap-3 mb-6">
-              <span className="text-sm font-medium text-gray-600">Qty:</span>
-              <div className="flex items-center border border-gray-300 rounded-lg overflow-hidden">
-                <button onClick={() => setQty(q => Math.max(1, q - 1))}
-                  className="px-3 py-2 hover:bg-gray-100 text-lg font-bold">−</button>
-                <span className="px-4 py-2 font-semibold border-x border-gray-300">{qty}</span>
-                <button onClick={() => setQty(q => Math.min(product.stock, q + 1))}
-                  className="px-3 py-2 hover:bg-gray-100 text-lg font-bold">+</button>
+            <div className="flex items-center gap-3">
+              <span className="text-sm font-medium">Quantity:</span>
+              <div className="flex items-center border border-gray-300 rounded-lg">
+                <button
+                  onClick={() => setQty(q => Math.max(1, q - 1))}
+                  className="px-3 py-2 hover:bg-gray-100"
+                >
+                  −
+                </button>
+                <span className="px-4 py-2 font-semibold border-x border-gray-300 min-w-12 text-center">{qty}</span>
+                <button
+                  onClick={() => setQty(q => Math.min(product.stock, q + 1))}
+                  className="px-3 py-2 hover:bg-gray-100"
+                >
+                  +
+                </button>
               </div>
             </div>
           )}
 
-          {/* Action buttons */}
-          <div className="flex gap-3">
+          {/* Action Buttons */}
+          <div className="flex gap-3 pt-4">
             <button
               onClick={handleAddToCart}
               disabled={product.stock === 0}
-              className="btn-primary flex-1 py-3 text-base disabled:opacity-40"
+              className="flex-1 bg-yellow-400 hover:bg-yellow-500 disabled:bg-gray-300 text-gray-800 font-semibold py-2 rounded-lg transition"
             >
               🛒 Add to Cart
             </button>
             <button
               onClick={handleBuyNow}
               disabled={product.stock === 0}
-              className="btn-secondary flex-1 py-3 text-base disabled:opacity-40"
+              className="flex-1 bg-orange-500 hover:bg-orange-600 disabled:bg-gray-300 text-white font-semibold py-2 rounded-lg transition"
             >
               Buy Now
             </button>
           </div>
-
-          {/* Tags */}
-          {product.tags?.length > 0 && (
-            <div className="flex flex-wrap gap-2 mt-5">
-              {product.tags.map((tag) => (
-                <span key={tag} className="bg-gray-100 text-gray-500 text-xs px-3 py-1 rounded-full">
-                  #{tag}
-                </span>
-              ))}
-            </div>
-          )}
         </div>
+
       </div>
-
-      {/* ── Reviews Section ──────────────────────────────── */}
-      <section className="mt-14">
-        <h2 className="text-2xl font-bold text-gray-800 mb-6">Customer Reviews</h2>
-
-        {/* Write a review */}
-        {user ? (
-          canReview ? (
-            <form onSubmit={handleReview} className="card mb-8">
-              <h3 className="font-semibold text-gray-700 mb-3">Write a Review</h3>
-              <div className="flex gap-2 mb-3">
-                {[1,2,3,4,5].map((star) => (
-                  <button key={star} type="button" onClick={() => setRating(star)}
-                    className={`text-2xl ${star <= rating ? "text-yellow-400" : "text-gray-300"}`}>
-                    ★
-                  </button>
-                ))}
-              </div>
-              <textarea
-                value={comment}
-                onChange={(e) => setComment(e.target.value)}
-                placeholder="Share your thoughts about this product..."
-                className="input-field resize-none h-24 mb-3"
-                required
-              />
-              <button type="submit" className="btn-primary">Submit Review</button>
-            </form>
-          ) : (
-            <div className="card mb-8 bg-blue-50 border-l-4 border-blue-500">
-              <p className="text-blue-700 text-sm">
-                ✓ You can only review products you have purchased.
-              </p>
-            </div>
-          )
-        ) : (
-          <div className="card mb-8 bg-blue-50 border-l-4 border-blue-500">
-            <p className="text-blue-700 text-sm">
-              <Link to="/login" className="font-medium hover:underline">Login</Link> to write a review.
-            </p>
-          </div>
-        )}
-
-        {/* Review list */}
-        {product.reviews.length === 0 ? (
-          <p className="text-gray-400 text-center py-8">No reviews yet. Be the first!</p>
-        ) : (
-          <div className="space-y-4">
-            {product.reviews.map((review) => (
-              <div key={review._id} className="card">
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center gap-2">
-                    <span className="font-semibold text-gray-800 text-sm">{review.name}</span>
-                    <span className="text-yellow-400 text-sm">{"★".repeat(review.rating)}</span>
-                  </div>
-                  <span className="text-xs text-gray-400">
-                    {new Date(review.createdAt).toLocaleDateString()}
-                  </span>
-                </div>
-                <p className="text-gray-600 text-sm">{review.comment}</p>
-              </div>
-            ))}
-          </div>
-        )}
-      </section>
     </div>
   );
 };
