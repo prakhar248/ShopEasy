@@ -24,6 +24,7 @@ import AddressPage from "./pages/AddressPage";
 import SellerDashboard from "./pages/SellerDashboard";
 import AdminDashboard from "./pages/AdminDashboard";
 import CreateProductPage from "./pages/CreateProductPage";
+import SellerStore from "./pages/SellerStore";
 
 function App() {
   return (
@@ -39,6 +40,7 @@ function App() {
             <Route path="/" element={<Home />} />
             <Route path="/products" element={<Products />} />
             <Route path="/products/:id" element={<ProductDetail />} />
+            <Route path="/seller/:sellerId" element={<SellerStore />} />
             <Route path="/login" element={<Auth mode="login" />} />
             <Route path="/signup" element={<Auth mode="signup" />} />
 

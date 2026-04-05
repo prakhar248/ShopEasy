@@ -11,6 +11,7 @@ const {
   getProducts,
   getProductById,
   addReview,
+  getProductsBySeller,
 } = require("../controllers/productController");
 
 const { upload } = require("../config/cloudinary");
@@ -19,6 +20,7 @@ const { protect, sellerOnly } = require("../middleware/authMiddleware");
 // Public
 router.post("/", protect, sellerOnly, upload.array("images", 5), createProduct);
 router.get("/",    getProducts);
+router.get("/seller/:sellerId", getProductsBySeller); // Must come before /:id
 router.get("/:id", getProductById);
 
 // Private (logged-in users — customers only, controller enforces this)

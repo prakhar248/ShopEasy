@@ -1,10 +1,10 @@
 // ============================================================
 //  src/pages/ProductDetail.jsx
-//  Shows full product details, image gallery, reviews, add-to-cart
+//  Shows full product details, image gallery, reviews, add-to-cart, buy now
 // ============================================================
 
 import { useEffect, useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, Link } from "react-router-dom";
 import api from "../api/axios";
 import { useCart } from "../context/CartContext";
 import { useAuth } from "../context/AuthContext";
@@ -22,6 +22,7 @@ const ProductDetail = () => {
   const [qty,       setQty]       = useState(1);
   const [rating,    setRating]    = useState(5);
   const [comment,   setComment]   = useState("");
+  const [canReview, setCanReview] = useState(false);
 
   useEffect(() => {
     const fetch = async () => {
@@ -37,9 +38,40 @@ const ProductDetail = () => {
     fetch();
   }, [id]);
 
+  // Check if user has purchased this product
+  useEffect(() => {
+    const checkPurchase = async () => {
+      if (!user || !product?._id) return;
+      try {
+        const res = await api.get("/orders/my-orders");
+        const purchased = res.data.orders.some(order =>
+          order.items.some(item => item.product._id === product._id || item.product === product._id)
+        );
+        setCanReview(purchased);
+      } catch (err) {
+        console.error("Error checking purchase:", err);
+      }
+    };
+    checkPurchase();
+  }, [user, product]);
+
   const handleAddToCart = () => {
     if (!user) return navigate("/login");
     addToCart(product._id, qty);
+  };
+
+  const handleBuyNow = () => {
+    if (!user) return navigate("/login");
+    const productData = {
+      _id: product._id,
+      name: product.name,
+      price: product.discountedPrice || product.price,
+      image: typeof product.images?.[0] === "string" ? product.images[0] : product.images?.[0]?.url,
+      quantity: qty,
+      seller: product.seller?._id
+    };
+    localStorage.setItem("buyNowProduct", JSON.stringify(productData));
+    navigate("/checkout");
   };
 
   const handleReview = async (e) => {
@@ -116,6 +148,17 @@ const ProductDetail = () => {
             <span className="text-gray-500 text-sm">({product.numReviews} reviews)</span>
           </div>
 
+          {/* Seller Info */}
+          <p className="text-sm text-gray-600 mb-4">
+            Sold by:{" "}
+            <Link
+              to={`/seller/${product.seller?._id}`}
+              className="text-blue-500 font-medium hover:underline"
+            >
+              {product.seller?.name}
+            </Link>
+          </p>
+
           {/* Price */}
           <div className="flex items-baseline gap-3 mb-5">
             <span className="text-3xl font-bold text-gray-800">₹{displayPrice.toLocaleString()}</span>
@@ -160,7 +203,7 @@ const ProductDetail = () => {
               🛒 Add to Cart
             </button>
             <button
-              onClick={async () => { await handleAddToCart(); navigate("/cart"); }}
+              onClick={handleBuyNow}
               disabled={product.stock === 0}
               className="btn-secondary flex-1 py-3 text-base disabled:opacity-40"
             >
@@ -186,26 +229,40 @@ const ProductDetail = () => {
         <h2 className="text-2xl font-bold text-gray-800 mb-6">Customer Reviews</h2>
 
         {/* Write a review */}
-        {user && (
-          <form onSubmit={handleReview} className="card mb-8">
-            <h3 className="font-semibold text-gray-700 mb-3">Write a Review</h3>
-            <div className="flex gap-2 mb-3">
-              {[1,2,3,4,5].map((star) => (
-                <button key={star} type="button" onClick={() => setRating(star)}
-                  className={`text-2xl ${star <= rating ? "text-yellow-400" : "text-gray-300"}`}>
-                  ★
-                </button>
-              ))}
+        {user ? (
+          canReview ? (
+            <form onSubmit={handleReview} className="card mb-8">
+              <h3 className="font-semibold text-gray-700 mb-3">Write a Review</h3>
+              <div className="flex gap-2 mb-3">
+                {[1,2,3,4,5].map((star) => (
+                  <button key={star} type="button" onClick={() => setRating(star)}
+                    className={`text-2xl ${star <= rating ? "text-yellow-400" : "text-gray-300"}`}>
+                    ★
+                  </button>
+                ))}
+              </div>
+              <textarea
+                value={comment}
+                onChange={(e) => setComment(e.target.value)}
+                placeholder="Share your thoughts about this product..."
+                className="input-field resize-none h-24 mb-3"
+                required
+              />
+              <button type="submit" className="btn-primary">Submit Review</button>
+            </form>
+          ) : (
+            <div className="card mb-8 bg-blue-50 border-l-4 border-blue-500">
+              <p className="text-blue-700 text-sm">
+                ✓ You can only review products you have purchased.
+              </p>
             </div>
-            <textarea
-              value={comment}
-              onChange={(e) => setComment(e.target.value)}
-              placeholder="Share your thoughts about this product..."
-              className="input-field resize-none h-24 mb-3"
-              required
-            />
-            <button type="submit" className="btn-primary">Submit Review</button>
-          </form>
+          )
+        ) : (
+          <div className="card mb-8 bg-blue-50 border-l-4 border-blue-500">
+            <p className="text-blue-700 text-sm">
+              <Link to="/login" className="font-medium hover:underline">Login</Link> to write a review.
+            </p>
+          </div>
         )}
 
         {/* Review list */}

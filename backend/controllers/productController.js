@@ -149,9 +149,9 @@ exports.getProductById = async (req, res, next) => {
 };
 
 // ============================================================
-//  @desc    Add or update a review (customers only)
+//  @desc    Add or update a review (customers only, verified purchase)
 //  @route   POST /api/products/:id/reviews
-//  @access  Private (customer)
+//  @access  Private (customer with verified purchase)
 // ============================================================
 exports.addReview = async (req, res, next) => {
   try {
@@ -160,6 +160,21 @@ exports.addReview = async (req, res, next) => {
     // Sellers should not review products (business rule)
     if (req.user.role === "seller") {
       return res.status(403).json({ success: false, message: "Sellers cannot review products." });
+    }
+
+    // Check if user has purchased this product
+    const Order = require("../models/Order");
+    const hasPurchased = await Order.findOne({
+      user: req.user._id,
+      "items.product": req.params.id,
+      paymentStatus: "paid"
+    });
+
+    if (!hasPurchased) {
+      return res.status(403).json({
+        success: false,
+        message: "You can only review products you have purchased."
+      });
     }
 
     const product = await Product.findById(req.params.id);
@@ -190,5 +205,28 @@ exports.addReview = async (req, res, next) => {
     res.status(201).json({ success: true, message: "Review submitted.", product });
   } catch (error) {
     next(error);
+  }
+};
+
+// ============================================================
+//  @desc    Get all products by a specific seller
+//  @route   GET /api/products/seller/:sellerId
+//  @access  Public
+// ============================================================
+exports.getProductsBySeller = async (req, res, next) => {
+  try {
+    const products = await Product.find({
+      seller: req.params.sellerId,
+      isActive: true
+    })
+    .populate("seller", "name avatar")
+    .sort({ createdAt: -1 });
+
+    res.json({
+      success: true,
+      products
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
   }
 };

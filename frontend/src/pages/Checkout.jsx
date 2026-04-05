@@ -1,5 +1,5 @@
 // ============================================================
-//  src/pages/Checkout.jsx  —  ENHANCED Address Management
+//  src/pages/Checkout.jsx  —  ENHANCED Address Management + Buy Now
 //  Step 0: Select/Add address (with direct save from checkout)
 //  Step 1: Review order
 //  Step 2: Pay via Razorpay (test mode)
@@ -39,16 +39,37 @@ const Checkout = () => {
     pincode: "",
   });
 
+  // Buy Now handling
+  const [buyNowProduct, setBuyNowProduct] = useState(null);
+
+  // Determine items: buyNowProduct or cart
+  const items = buyNowProduct 
+    ? [{
+        product: buyNowProduct,
+        quantity: buyNowProduct.quantity,
+        priceAtAdd: buyNowProduct.price
+      }]
+    : cart?.items || [];
+
   // Calculate prices
-  const items      = cart?.items || [];
   const subtotal   = items.reduce((acc, i) => acc + i.priceAtAdd * i.quantity, 0);
   const shipping   = subtotal > 500 ? 0 : 50;
   const tax        = Math.round(subtotal * 0.18);
   const grandTotal = subtotal + shipping + tax;
 
-  // Fetch saved addresses on mount
+  // Fetch saved addresses on mount + check for buyNowProduct
   useEffect(() => {
     fetchSavedAddresses();
+    
+    // Check for buyNowProduct from localStorage
+    const buyNow = localStorage.getItem("buyNowProduct");
+    if (buyNow) {
+      try {
+        setBuyNowProduct(JSON.parse(buyNow));
+      } catch (err) {
+        console.error("Error parsing buyNowProduct:", err);
+      }
+    }
   }, []);
 
   const fetchSavedAddresses = async () => {
@@ -246,7 +267,14 @@ const Checkout = () => {
             });
 
             console.log("✅ 3. Payment verified!");
-            clearCart();
+            
+            // Clear cart or buyNowProduct
+            if (buyNowProduct) {
+              localStorage.removeItem("buyNowProduct");
+            } else {
+              clearCart();
+            }
+            
             toast.success("🎉 Payment successful! Your order is confirmed.");
             navigate("/orders");
           } catch (verifyErr) {
@@ -430,15 +458,18 @@ const Checkout = () => {
           <div className="bg-white rounded-lg shadow-md p-6 border border-gray-200">
             <h2 className="font-bold text-gray-800 mb-4">Order Review</h2>
             {items.map((item, i) => {
-              const imageUrl = typeof item.product.images?.[0] === "string"
-                ? item.product.images[0]
-                : item.product.images?.[0]?.url;
+              const product = buyNowProduct ? item.product : item.product;
+              const imageUrl = buyNowProduct 
+                ? item.product.image 
+                : typeof item.product.images?.[0] === "string"
+                  ? item.product.images[0]
+                  : item.product.images?.[0]?.url;
               return (
                 <div key={i} className="flex items-center gap-3 mb-3">
-                  <img src={imageUrl} alt={item.product.name}
+                  <img src={imageUrl} alt={product.name}
                     className="w-12 h-12 object-cover rounded-lg" />
                   <div className="flex-1">
-                    <p className="text-sm font-medium text-gray-700">{item.product.name}</p>
+                    <p className="text-sm font-medium text-gray-700">{product.name}</p>
                     <p className="text-xs text-gray-400">Qty: {item.quantity}</p>
                   </div>
                   <p className="font-semibold text-sm">₹{(item.priceAtAdd * item.quantity).toLocaleString()}</p>
