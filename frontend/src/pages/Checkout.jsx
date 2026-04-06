@@ -335,48 +335,51 @@ const Checkout = () => {
       form.action = payuTestUrl;
       form.style.display = "none";
 
-      // Add ALL required PayU fields to form
+      // CRITICAL: Use EXACT values from backend — do NOT modify hash-critical fields
+      // These fields MUST match what was used in hash generation on the backend:
+      // key, txnid, amount, productinfo, firstname, email, udf1-5
       const fields = {
         key:              paymentData.key,
         txnid:            paymentData.txnid,
-        amount:           paymentData.amount,
-        productinfo:      paymentData.productinfo,
-        firstname:        paymentData.firstname,
-        lastname:         paymentData.lastname || "",
-        email:            paymentData.email,
+        amount:           paymentData.amount,       // Already "299.00" from backend
+        productinfo:      paymentData.productinfo,  // Already cleaned on backend
+        firstname:        paymentData.firstname,    // Already cleaned on backend
+        email:            paymentData.email,         // Already cleaned on backend
         phone:            paymentData.phone,
+        lastname:         paymentData.lastname || "",
+        hash:             paymentData.hash,
+        surl:             paymentData.surl,
+        furl:             paymentData.furl,
+        service_provider: paymentData.service_provider,
+        udf1:             paymentData.udf1,         // Already set on backend
+        udf2:             paymentData.udf2,         // Already set on backend
+        udf3:             paymentData.udf3,         // Already set on backend
+        udf4:             paymentData.udf4,         // Already set on backend
+        udf5:             paymentData.udf5,         // Already set on backend
         address1:         paymentData.address1 || "",
         city:             paymentData.city || "",
         state:            paymentData.state || "",
         zipcode:          paymentData.zipcode || "",
         country:          paymentData.country || "India",
-        hash:             paymentData.hash,
-        surl:             paymentData.surl,
-        furl:             paymentData.furl,
-        udf1:             paymentData.udf1 || "",
-        udf2:             paymentData.udf2 || "",
-        udf3:             paymentData.udf3 || "",
-        udf4:             paymentData.udf4 || "",
-        udf5:             paymentData.udf5 || "",
-        service_provider: paymentData.service_provider || "payu_paisa",
       };
 
-      // Create hidden input for each field
+      // Create hidden input for each field — use value exactly, never "undefined"
       Object.entries(fields).forEach(([fieldName, fieldValue]) => {
         const input = document.createElement("input");
         input.type = "hidden";
         input.name = fieldName;
-        input.value = String(fieldValue);
+        input.value = fieldValue != null ? String(fieldValue) : "";
         form.appendChild(input);
       });
 
       document.body.appendChild(form);
 
-      console.log("✅ PayU form created — submitting...");
-      console.log("   Txn ID:", paymentData.txnid);
-      console.log("   Amount:", paymentData.amount);
-      console.log("   Phone:", paymentData.phone);
-      console.log("   Hash:", paymentData.hash?.substring(0, 16) + "...");
+      console.log("✅ PayU form created — submitting to:", payuTestUrl);
+      console.log("📦 FULL FORM PAYLOAD:");
+      Object.entries(fields).forEach(([k, v]) => {
+        console.log(`   ${k}: "${v}"`);
+      });
+
 
       // Submit form — this redirects the browser to PayU
       form.submit();
@@ -719,21 +722,33 @@ const Checkout = () => {
             </button>
           </div>
 
-          {/* Test Card Info */}
+          {/* Test Card / UPI Info */}
           <div className={`rounded-xl p-4 mt-2 text-sm space-y-2 border ${
             paymentMethod === "razorpay"
               ? "bg-brand-light border-brand/20 text-brand-dark"
               : "bg-green-50 border-green-200 text-green-900"
           }`}>
-            <p className="font-semibold">
-              🧪 {paymentMethod === "razorpay" ? "Razorpay" : "PayU"} Test Card
-            </p>
-            <p>Card: <code className="bg-white/60 px-2 py-0.5 rounded font-mono text-xs">4111 1111 1111 1111</code></p>
-            <p>Expiry: Any future date &bull; CVV: Any 3 digits</p>
-            {paymentMethod === "payu" && (
-              <p className="text-xs opacity-80 mt-1">
-                ℹ️ You'll be redirected to PayU's secure checkout page.
-              </p>
+            {paymentMethod === "razorpay" ? (
+              <>
+                <p className="font-semibold">🧪 Razorpay Test Mode — Indian Cards & UPI</p>
+                <p>Visa: <code className="bg-white/60 px-2 py-0.5 rounded font-mono text-xs">4111 1111 1111 1111</code></p>
+                <p>Mastercard: <code className="bg-white/60 px-2 py-0.5 rounded font-mono text-xs">5267 3181 8797 5449</code></p>
+                <p>Expiry: Any future date &bull; CVV: Any 3 digits</p>
+                <p>UPI (success): <code className="bg-white/60 px-2 py-0.5 rounded font-mono text-xs">success@razorpay</code></p>
+                <p>UPI (failure): <code className="bg-white/60 px-2 py-0.5 rounded font-mono text-xs">failure@razorpay</code></p>
+                <p className="text-xs opacity-80 mt-1">
+                  ⚠️ DO NOT use international cards — use Indian test cards above. OTP: any 4+ digit number = success, below 4 digits = failure.
+                </p>
+              </>
+            ) : (
+              <>
+                <p className="font-semibold">🧪 PayU Test Mode</p>
+                <p>Card: <code className="bg-white/60 px-2 py-0.5 rounded font-mono text-xs">5123 4567 8901 2346</code></p>
+                <p>Expiry: Any future date &bull; CVV: <code className="bg-white/60 px-2 py-0.5 rounded font-mono text-xs">123</code></p>
+                <p className="text-xs opacity-80 mt-1">
+                  ℹ️ You'll be redirected to PayU's secure checkout page.
+                </p>
+              </>
             )}
           </div>
         </div>

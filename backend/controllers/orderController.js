@@ -67,12 +67,9 @@ exports.placeOrder = async (req, res, next) => {
 
     console.log("✅ Order created:", order._id);
 
-    // ── UPDATE STOCK ─────────────────────────────────────────────────
-    for (const item of items) {
-      await Product.findByIdAndUpdate(item.product, { $inc: { stock: -item.quantity } });
-    }
-
-    console.log("✅ Stock updated for all items");
+    // NOTE: Stock is NOT decremented here — it only decreases after
+    // successful payment verification (in paymentController.js).
+    // This prevents stock from being "consumed" by unpaid/failed orders.
 
     // ── CLEAR CART ONLY IF CART FLOW ─────────────────────────────────
     if (!directItems && cart) {

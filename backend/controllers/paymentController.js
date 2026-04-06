@@ -21,6 +21,7 @@
 const Razorpay = require("razorpay");
 const crypto   = require("crypto");
 const Order    = require("../models/Order");
+const Product  = require("../models/Product");
 const Cart     = require("../models/Cart");
 const sendEmail = require("../utils/sendEmail");
 const { createPayUPaymentObject, verifyPayUHash } = require("../utils/payuUtils");
@@ -140,6 +141,14 @@ exports.verifyPayment = async (req, res, next) => {
     order.paidAt             = new Date();
     await order.save();
 
+    // ── DECREMENT STOCK (only after confirmed payment) ──────────────
+    for (const item of order.items) {
+      await Product.findByIdAndUpdate(item.product, {
+        $inc: { stock: -item.quantity, countInStock: -item.quantity },
+      });
+    }
+    console.log("✅ Stock decremented for", order.items.length, "items after Razorpay payment");
+
     // Send payment success email (non-blocking)
     try {
       await sendEmail(
@@ -220,36 +229,17 @@ exports.generatePayUPayment = async (req, res, next) => {
     await order.save();
 
     // Return ALL fields needed for the PayU form
+    // Spread the entire paymentObject — this guarantees no field is missed or mistyped
     res.status(200).json({
       success: true,
-      paymentData: {
-        key:              paymentObject.key,
-        txnid:            paymentObject.txnid,
-        amount:           paymentObject.amount,
-        productinfo:      paymentObject.productinfo,
-        firstname:        paymentObject.firstname,
-        email:            paymentObject.email,
-        phone:            paymentObject.phone,
-        lastname:         paymentObject.lastname,
-        address1:         paymentObject.address1,
-        city:             paymentObject.city,
-        state:            paymentObject.state,
-        zipcode:          paymentObject.zipcode,
-        country:          paymentObject.country,
-        hash:             paymentObject.hash,
-        surl:             paymentObject.surl,
-        furl:             paymentObject.furl,
-        udf1:             paymentObject.udf1,
-        udf2:             paymentObject.udf2,
-        udf3:             paymentObject.udf3,
-        udf4:             paymentObject.udf4,
-        udf5:             paymentObject.udf5,
-        service_provider: paymentObject.service_provider,
-      },
+      paymentData: paymentObject,
       payuTestUrl: "https://test.payu.in/_payment",
     });
 
     console.log("✅ PayU payment details generated for order:", orderId);
+    console.log("   PayU test URL: https://test.payu.in/_payment");
+    console.log("   surl:", paymentObject.surl);
+    console.log("   furl:", paymentObject.furl);
   } catch (error) {
     console.error("PayU payment generation error:", error);
     next(error);
@@ -266,6 +256,14 @@ exports.generatePayUPayment = async (req, res, next) => {
 // ============================================================
 exports.handlePayUSuccess = async (req, res, next) => {
   try {
+    // ── DEBUG: Full PayU response dump ────────────────────────
+    console.log("\n" + "=".repeat(60));
+    console.log("📨 PayU SUCCESS CALLBACK RECEIVED");
+    console.log("=".repeat(60));
+    console.log("   Method:", req.method);
+    console.log("   PayU FULL BODY:", JSON.stringify(req.body, null, 2));
+    console.log("   PayU FULL QUERY:", JSON.stringify(req.query, null, 2));
+
     // Support BOTH GET and POST — PayU may redirect with either method
     const data = req.body && Object.keys(req.body).length > 0 ? req.body : req.query;
 
@@ -277,13 +275,20 @@ exports.handlePayUSuccess = async (req, res, next) => {
       firstname,
       udf1,         // Order ID (custom field we set)
       hash,
+      mihpayid,     // PayU's internal payment ID
+      mode,         // Payment mode (CC, DC, NB, etc.)
+      error_Message,
     } = data;
 
-    console.log("📨 PayU Success Callback Received (method:", req.method, ")");
+    console.log("   ── Parsed Fields ──");
+    console.log("   PayU STATUS:", status);
     console.log("   Txn ID:", txnid);
-    console.log("   Status:", status);
+    console.log("   PayU Payment ID (mihpayid):", mihpayid);
     console.log("   Amount:", amount);
+    console.log("   Mode:", mode);
     console.log("   UDF1 (orderId):", udf1);
+    console.log("   Error Message:", error_Message || "none");
+    console.log("=".repeat(60) + "\n");
 
     // Validate required fields
     if (!txnid || !status || !amount || !udf1) {
@@ -313,15 +318,24 @@ exports.handlePayUSuccess = async (req, res, next) => {
       }
     }
 
-    // Check payment status from PayU
+    // ── DECISION: Check data.status (source of truth, NOT PayU UI) ──
     if (status === "success") {
       // Mark order as paid
       order.paymentStatus = "paid";
       order.payuStatus = status;
+      order.payuTxnId = txnid;
       order.paidAt = new Date();
       await order.save();
 
-      console.log("✅ Order marked as paid:", order._id);
+      // ── DECREMENT STOCK (only after confirmed payment) ──────────────
+      for (const item of order.items) {
+        await Product.findByIdAndUpdate(item.product, {
+          $inc: { stock: -item.quantity, countInStock: -item.quantity },
+        });
+      }
+      console.log("✅ Stock decremented for", order.items.length, "items after PayU payment");
+
+      console.log("✅ ORDER CONFIRMED AS PAID:", order._id);
 
       // Clear user's cart server-side (since PayU redirects lose frontend state)
       try {
@@ -359,12 +373,13 @@ exports.handlePayUSuccess = async (req, res, next) => {
       // Redirect to dedicated frontend success page
       return res.redirect(`${process.env.FRONTEND_URL}/payment-success?orderId=${order._id}`);
     } else {
-      // Payment failed or pending
+      // Payment failed or pending — status is NOT "success"
       order.paymentStatus = "failed";
       order.payuStatus = status;
+      order.payuTxnId = txnid;
       await order.save();
 
-      console.log("❌ Payment failed for order:", order._id, "Status:", status);
+      console.log("❌ Payment NOT successful for order:", order._id, "PayU status:", status);
 
       // Send failure notification email
       try {
@@ -386,7 +401,7 @@ exports.handlePayUSuccess = async (req, res, next) => {
       return res.redirect(`${process.env.FRONTEND_URL}/payment-failed?orderId=${order._id}`);
     }
   } catch (error) {
-    console.error("PayU success callback error:", error);
+    console.error("PayU success callback CRASH error:", error);
     // Always redirect to frontend, even on error
     return res.redirect(`${process.env.FRONTEND_URL}/payment-failed?error=server_error`);
   }
@@ -399,13 +414,33 @@ exports.handlePayUSuccess = async (req, res, next) => {
 // ============================================================
 exports.handlePayUFailure = async (req, res, next) => {
   try {
+    // ── DEBUG: Full PayU response dump ────────────────────────
+    console.log("\n" + "=".repeat(60));
+    console.log("📨 PayU FAILURE CALLBACK RECEIVED");
+    console.log("=".repeat(60));
+    console.log("   Method:", req.method);
+    console.log("   PayU FULL BODY:", JSON.stringify(req.body, null, 2));
+    console.log("   PayU FULL QUERY:", JSON.stringify(req.query, null, 2));
+
     // Support BOTH GET and POST — PayU may redirect with either method
     const data = req.body && Object.keys(req.body).length > 0 ? req.body : req.query;
-    const { txnid, udf1 } = data;
+    const { txnid, udf1, status, error_Message } = data;
 
-    console.log("📨 PayU Failure Callback Received (method:", req.method, ")");
+    console.log("   ── Parsed Fields ──");
+    console.log("   PayU STATUS:", status);
     console.log("   Txn ID:", txnid);
     console.log("   UDF1 (orderId):", udf1);
+    console.log("   Error Message:", error_Message || "none");
+    console.log("=".repeat(60) + "\n");
+
+    // ── IMPORTANT: PayU sandbox sometimes routes success to furl ──
+    // Check data.status — if it says "success", treat it as success
+    // regardless of which endpoint PayU redirected to.
+    if (status === "success") {
+      console.log("⚠️ PayU sent status=success to FAILURE URL (sandbox quirk)");
+      console.log("   Routing to success handler instead...");
+      return exports.handlePayUSuccess(req, res, next);
+    }
 
     // Find and update order
     let order = null;
@@ -418,10 +453,11 @@ exports.handlePayUFailure = async (req, res, next) => {
 
     if (order) {
       order.paymentStatus = "failed";
-      order.payuStatus = "failure";
+      order.payuStatus = status || "failure";
+      order.payuTxnId = txnid || order.payuTxnId;
       await order.save();
 
-      console.log("❌ Order marked as failed:", order._id);
+      console.log("❌ ORDER MARKED AS FAILED:", order._id, "PayU status:", status);
 
       // Send failure email
       try {
@@ -438,12 +474,14 @@ exports.handlePayUFailure = async (req, res, next) => {
       } catch (emailError) {
         console.error("Failed to send payment failure email:", emailError);
       }
+    } else {
+      console.error("❌ Order not found for failure callback. txnid:", txnid, "udf1:", udf1);
     }
 
     // Redirect to dedicated frontend failure page
     res.redirect(`${process.env.FRONTEND_URL}/payment-failed${udf1 ? `?orderId=${udf1}` : ""}`);
   } catch (error) {
-    console.error("PayU failure callback error:", error);
+    console.error("PayU failure callback CRASH error:", error);
     res.redirect(`${process.env.FRONTEND_URL}/payment-failed?error=server_error`);
   }
 };
