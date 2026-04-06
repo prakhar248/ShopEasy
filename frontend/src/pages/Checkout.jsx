@@ -1,12 +1,14 @@
 // ============================================================
-//  src/pages/Checkout.jsx  —  ENHANCED Address Management + Buy Now
-//  Step 0: Select/Add address (with direct save from checkout)
-//  Step 1: Review order
-//  Step 2: Pay via Razorpay (test mode)
+//  src/pages/Checkout.jsx — Enhanced Checkout with Dual Payment
+//  Step 0: Select/Add address
+//  Step 1: Review order + Select payment method
+//  Step 2: Processing payment
+//
+//  Supports: Razorpay (popup) and PayU (redirect)
 // ============================================================
 
 import { useState, useEffect } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
+import { useNavigate, useLocation, useSearchParams } from "react-router-dom";
 import api from "../api/axios";
 import addressService from "../services/addressService";
 import AddressForm from "../components/AddressForm";
@@ -21,13 +23,15 @@ const Checkout = () => {
   const { user }            = useAuth();
   const navigate            = useNavigate();
   const location            = useLocation();
+  const [searchParams]      = useSearchParams();
   const buyNowItem          = location.state?.buyNowItem;
 
   const [step,    setStep]    = useState(0);
   const [loading, setLoading] = useState(false);
   const [savingAddress, setSavingAddress] = useState(false);
   const [orderId, setOrderId] = useState(null);
-  const [paymentMethod, setPaymentMethod] = useState("razorpay"); // 'razorpay' or 'payu'
+  const [paymentMethod, setPaymentMethod] = useState("razorpay");
+  const [payuRedirecting, setPayuRedirecting] = useState(false);
 
   // Address management
   const [savedAddresses, setSavedAddresses]   = useState([]);
@@ -47,7 +51,7 @@ const Checkout = () => {
     ? [buyNowItem]
     : cart?.items || [];
 
-  // ✅ FIX PRICE CALCULATION - Handle both Buy Now and Cart items
+  // Price calculation — handles both Buy Now and Cart items
   const itemsPrice = items.reduce((acc, item) => {
     const price = Number(item.price || item.priceAtAdd || item.product?.price || 0);
     const qty = Number(item.quantity || item.qty || 1);
@@ -58,6 +62,16 @@ const Checkout = () => {
   const tax        = Math.round(itemsPrice * 0.18);
   const grandTotal = itemsPrice + shipping + tax;
 
+  // Handle PayU return params (user comes back from PayU redirect)
+  useEffect(() => {
+    const paymentStatus = searchParams.get("paymentStatus");
+    const returnOrderId = searchParams.get("orderId");
+
+    if (paymentStatus === "failure" && returnOrderId) {
+      toast.error("Payment failed. You can retry from My Orders page.");
+    }
+  }, [searchParams]);
+
   // Fetch saved addresses on mount
   useEffect(() => {
     fetchSavedAddresses();
@@ -67,14 +81,12 @@ const Checkout = () => {
     try {
       const data = await addressService.getAddresses();
       setSavedAddresses(data.addresses || []);
-      
-      // If addresses exist, auto-select default or first
+
       if (data.addresses.length > 0) {
         const defaultAddr = data.addresses.find((a) => a.isDefault);
         setSelectedAddressId(defaultAddr?._id || data.addresses[0]._id);
         setShowAddressForm(false);
       } else {
-        // No addresses → show form
         setShowAddressForm(true);
         setSelectedAddressId(null);
       }
@@ -85,7 +97,7 @@ const Checkout = () => {
     }
   };
 
-  // Get current address object (selected saved or from form)
+  // Get current address object
   const getCurrentAddress = () => {
     if (selectedAddressId) {
       const addr = savedAddresses.find((a) => a._id === selectedAddressId);
@@ -103,59 +115,34 @@ const Checkout = () => {
     return formData;
   };
 
-  // Handle form input change
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-    setFormData((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
+    setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
   // Save address directly from checkout
   const handleSaveAddressFromCheckout = async (e) => {
     e.preventDefault();
-
-    console.log("💾 Save address handler called");
-    console.log("📋 Form data:", formData);
-
-    // Validate
     if (!formData.name || !formData.phone || !formData.street || !formData.city || !formData.state || !formData.pincode) {
-      console.log("❌ Validation failed - missing fields");
       return toast.error("Please fill all address fields");
     }
 
-    console.log("✅ Validation passed");
     setSavingAddress(true);
-
     try {
-      console.log("📤 Sending POST request to /api/addresses");
       const response = await addressService.addAddress({
         ...formData,
         label: "home",
         isDefault: savedAddresses.length === 0,
       });
 
-      console.log("✨ Address saved response:", response);
-
       if (!response.address || !response.address._id) {
-        console.error("❌ Response missing address._id:", response);
         throw new Error("Address saved but missing ID in response");
       }
 
-      console.log("📌 Address ID received:", response.address._id);
       toast.success("Address saved successfully!");
-
-      // Refresh addresses
-      console.log("🔄 Refreshing address list...");
       await fetchSavedAddresses();
-
-      // Auto-select newly added address
-      console.log("✔️ Selecting newly added address:", response.address._id);
       setSelectedAddressId(response.address._id);
       setShowAddressForm(false);
-
-      // Reset form
       setFormData({
         name:    user?.name || "",
         phone:   user?.phone || "",
@@ -164,17 +151,14 @@ const Checkout = () => {
         state:   "",
         pincode: "",
       });
-
-      console.log("🎉 Address save complete!");
     } catch (err) {
-      console.error("❌ Error saving address:", err?.response?.data || err.message);
+      console.error("Error saving address:", err?.response?.data || err.message);
       toast.error(err.response?.data?.message || "Failed to save address");
     } finally {
       setSavingAddress(false);
     }
   };
 
-  // Reset form
   const resetForm = () => {
     setFormData({
       name:    user?.name || "",
@@ -187,32 +171,22 @@ const Checkout = () => {
     setShowAddressForm(false);
   };
 
-  // ── Step 0 → Step 1: Validate address selection ─────────────────
+  // Step 0 → Step 1: Validate address selection
   const handleAddressSubmit = (e) => {
     e.preventDefault();
-
-    console.log("📋 Address submit - buyNowItem:", buyNowItem);
-    console.log("📋 Cart items:", cart?.items);
-    console.log("📋 Total items array:", items);
-
     if (!selectedAddressId) {
       return toast.error("Please select or add an address to continue");
     }
-
-    // Check if we have items: either from Buy Now OR from Cart
     if (!buyNowItem && (!cart?.items || cart.items.length === 0)) {
       return toast.error("Your cart is empty. Please add items or use Buy Now.");
     }
-
     setStep(1);
   };
 
   // ── Consolidated Payment Flow ────────────────────────────────────
-  // Step 1 → 2: Create order + Payment (Razorpay or PayU)
   const handlePayNow = async () => {
-    // ✅ SAFETY CHECK: ensure we have valid items
     if (!items || items.length === 0) {
-      toast.error("No items to checkout. Please add items to your cart or use Buy Now.");
+      toast.error("No items to checkout.");
       return;
     }
 
@@ -220,17 +194,11 @@ const Checkout = () => {
     try {
       const shippingAddress = getCurrentAddress();
 
-      console.log("💳 Payment flow started");
-      console.log("📦 Items count:", items.length);
-      console.log("🛍️ Is Buy Now:", !!buyNowItem);
-      console.log("📍 Shipping address:", shippingAddress);
-      console.log("📝 Raw items before mapping:", items);
-
-      // ✅ FIX ORDER PAYLOAD STRUCTURE - Ensure all required fields
+      // Build order items with proper structure
       const orderItems = items.map((item) => {
         const itemPrice = Number(item.price || item.priceAtAdd || item.product?.price || 0);
         const itemQty = Number(item.quantity || item.qty || 1);
-        const itemImage = 
+        const itemImage =
           item.image ||
           (typeof item.product?.images?.[0] === "string" ? item.product.images[0] : item.product?.images?.[0]?.url) ||
           item.product?.images?.[0] ||
@@ -245,25 +213,16 @@ const Checkout = () => {
         };
       });
 
-      // ✅ ENSURE ALL NUMERIC FIELDS ARE VALID NUMBERS
-      const validatedItemsPrice = Number(itemsPrice) || 0;
-      const validatedShipping = Number(shipping) || 0;
-      const validatedTax = Number(tax) || 0;
-      const validatedTotal = Number(grandTotal) || 0;
-
       const orderPayload = {
         shippingAddress,
         orderItems,
-        itemsPrice: validatedItemsPrice,
-        shippingPrice: validatedShipping,
-        taxPrice: validatedTax,
-        totalPrice: validatedTotal,
+        itemsPrice:    Number(itemsPrice) || 0,
+        shippingPrice: Number(shipping) || 0,
+        taxPrice:      Number(tax) || 0,
+        totalPrice:    Number(grandTotal) || 0,
       };
 
-      console.log("🚀 FINAL ORDER DATA:", orderPayload);
-
       // Step 1: Create order in MongoDB
-      console.log("📤 1. Creating order in database...");
       const { data: orderData } = await api.post("/orders", orderPayload);
       const createdOrder = orderData.order;
 
@@ -271,7 +230,6 @@ const Checkout = () => {
         throw new Error("Order creation failed - Missing order ID");
       }
 
-      console.log("✅ 1. Order created:", createdOrder._id);
       setOrderId(createdOrder._id);
 
       // Route based on selected payment method
@@ -281,7 +239,7 @@ const Checkout = () => {
         await handleRazorpayPayment(createdOrder._id);
       }
     } catch (err) {
-      console.error("❌ Payment flow error:", err?.response?.data || err.message);
+      console.error("Payment flow error:", err?.response?.data || err.message);
       toast.error(err.response?.data?.message || "Failed to process payment");
     } finally {
       setLoading(false);
@@ -291,16 +249,9 @@ const Checkout = () => {
   // ── Razorpay Payment Handler ────────────────────────────────────
   const handleRazorpayPayment = async (createdOrderId) => {
     try {
-      // Step 2: Create Razorpay order
-      console.log("📤 2. Creating Razorpay order...");
       const { data: paymentData } = await api.post("/payment/create-order", {
         orderId: createdOrderId,
       });
-
-      console.log("✅ 2. Razorpay order created:", paymentData.razorpayOrderId);
-
-      // Step 3: Open Razorpay checkout
-      console.log("📤 3. Opening Razorpay checkout...");
 
       const shippingAddress = getCurrentAddress();
 
@@ -314,10 +265,6 @@ const Checkout = () => {
 
         handler: async (response) => {
           try {
-            console.log("✨ Razorpay payment response received:", response);
-            console.log("📤 3. Verifying payment with backend...");
-
-            // Step 4: Verify payment signature
             await api.post("/payment/verify", {
               razorpay_order_id: response.razorpay_order_id,
               razorpay_payment_id: response.razorpay_payment_id,
@@ -325,19 +272,15 @@ const Checkout = () => {
               orderId: createdOrderId,
             });
 
-            console.log("✅ 3. Payment verified!");
-            
-            // Clear cart or buyNowItem
-            if (buyNowItem) {
-              // No cleanup needed for state-passed item
-            } else {
+            // Clear cart after successful payment
+            if (!buyNowItem) {
               clearCart();
             }
-            
+
             toast.success("🎉 Payment successful! Your order is confirmed.");
             navigate("/orders");
           } catch (verifyErr) {
-            console.error("❌ Payment verification failed:", verifyErr);
+            console.error("Payment verification failed:", verifyErr);
             toast.error("Payment verification failed. Please contact support.");
           }
         },
@@ -348,20 +291,19 @@ const Checkout = () => {
           contact: shippingAddress.phone,
         },
 
-        theme: { color: "#2563EB" },
+        theme: { color: "#6C63FF" },
       };
 
       const rzp = new window.Razorpay(options);
 
       rzp.on("payment.failed", (response) => {
-        console.error("❌ Payment failed:", response.error);
+        console.error("Payment failed:", response.error);
         toast.error(`Payment failed: ${response.error.description}`);
       });
 
       rzp.open();
-      console.log("✅ Razorpay checkout opened");
     } catch (err) {
-      console.error("❌ Razorpay payment error:", err?.response?.data || err.message);
+      console.error("Razorpay payment error:", err?.response?.data || err.message);
       throw err;
     }
   };
@@ -369,8 +311,8 @@ const Checkout = () => {
   // ── PayU Payment Handler ────────────────────────────────────
   const handlePayUPayment = async (createdOrderId) => {
     try {
-      // Step 2: Get PayU payment details from backend
-      console.log("📤 2. Generating PayU payment form...");
+      setPayuRedirecting(true);
+
       const { data: paymentResponse } = await api.post("/payment/payu-generate", {
         orderId: createdOrderId,
       });
@@ -379,72 +321,94 @@ const Checkout = () => {
         throw new Error("Failed to generate PayU payment form");
       }
 
-      console.log("✅ 2. PayU payment details received");
-
       const paymentData = paymentResponse.paymentData;
       const payuTestUrl = paymentResponse.payuTestUrl;
 
-      // Step 3: Create hidden form and submit to PayU
-      console.log("📤 3. Submitting to PayU gateway...");
+      // Clear cart before redirecting (user won't come back to this page)
+      if (!buyNowItem) {
+        clearCart();
+      }
 
+      // Create hidden form and submit to PayU gateway
       const form = document.createElement("form");
       form.method = "POST";
       form.action = payuTestUrl;
       form.style.display = "none";
 
-      // Add all required PayU fields to form
+      // Add ALL required PayU fields to form
       const fields = {
-        key: paymentData.key,
-        txnid: paymentData.txnid,
-        amount: paymentData.amount.toString(),
-        productinfo: paymentData.productinfo,
-        firstname: paymentData.firstname,
-        lastname: paymentData.lastname,
-        email: paymentData.email,
-        phone: paymentData.phone,
-        address1: paymentData.address1,
-        city: paymentData.city,
-        state: paymentData.state,
-        zipcode: paymentData.zipcode,
-        hash: paymentData.hash,
-        surl: paymentData.surl,
-        furl: paymentData.furl,
-        udf1: paymentData.udf1,
-        udf2: paymentData.udf2,
+        key:              paymentData.key,
+        txnid:            paymentData.txnid,
+        amount:           paymentData.amount,
+        productinfo:      paymentData.productinfo,
+        firstname:        paymentData.firstname,
+        lastname:         paymentData.lastname || "",
+        email:            paymentData.email,
+        phone:            paymentData.phone,
+        address1:         paymentData.address1 || "",
+        city:             paymentData.city || "",
+        state:            paymentData.state || "",
+        zipcode:          paymentData.zipcode || "",
+        country:          paymentData.country || "India",
+        hash:             paymentData.hash,
+        surl:             paymentData.surl,
+        furl:             paymentData.furl,
+        udf1:             paymentData.udf1 || "",
+        udf2:             paymentData.udf2 || "",
+        udf3:             paymentData.udf3 || "",
+        udf4:             paymentData.udf4 || "",
+        udf5:             paymentData.udf5 || "",
+        service_provider: paymentData.service_provider || "payu_paisa",
       };
 
       // Create hidden input for each field
-      Object.keys(fields).forEach((key) => {
+      Object.entries(fields).forEach(([fieldName, fieldValue]) => {
         const input = document.createElement("input");
         input.type = "hidden";
-        input.name = key;
-        input.value = fields[key];
+        input.name = fieldName;
+        input.value = String(fieldValue);
         form.appendChild(input);
       });
 
       document.body.appendChild(form);
-      
-      console.log("✅ PayU form created and submitted");
-      console.log("🔐 Transaction ID:", paymentData.txnid);
-      console.log("💰 Amount:", paymentData.amount);
 
-      // Submit form to PayU
+      console.log("✅ PayU form created — submitting...");
+      console.log("   Txn ID:", paymentData.txnid);
+      console.log("   Amount:", paymentData.amount);
+      console.log("   Phone:", paymentData.phone);
+      console.log("   Hash:", paymentData.hash?.substring(0, 16) + "...");
+
+      // Submit form — this redirects the browser to PayU
       form.submit();
 
-      // Clean up form after submission
-      setTimeout(() => {
-        document.body.removeChild(form);
-      }, 1000);
     } catch (err) {
-      console.error("❌ PayU payment error:", err?.response?.data || err.message);
+      setPayuRedirecting(false);
+      console.error("PayU payment error:", err?.response?.data || err.message);
       throw err;
     }
   };
 
   const currentAddress = getCurrentAddress();
-
-  // Show label if this is a direct Buy Now purchase
   const isBuyNow = !!buyNowItem;
+
+  // ── PayU Redirect Overlay ────────────────────────────────────
+  if (payuRedirecting) {
+    return (
+      <div className="fixed inset-0 bg-white/95 z-50 flex flex-col items-center justify-center">
+        <div className="text-center">
+          <div className="inline-flex items-center justify-center w-20 h-20 mb-6 rounded-full bg-green-100">
+            <svg className="w-10 h-10 text-green-600 animate-spin" fill="none" viewBox="0 0 24 24">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/>
+            </svg>
+          </div>
+          <h2 className="text-2xl font-bold text-gray-800 mb-2">Redirecting to PayU...</h2>
+          <p className="text-gray-500 mb-4">You will be securely redirected to PayU's payment gateway.</p>
+          <p className="text-sm text-gray-400">Do not close this window or press the back button.</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-3xl mx-auto px-4 py-10">
@@ -462,14 +426,14 @@ const Checkout = () => {
         {STEPS.map((s, i) => (
           <div key={s} className="flex items-center flex-1">
             <div className={`flex items-center justify-center w-8 h-8 rounded-full text-sm font-bold
-              ${i <= step ? "bg-blue-600 text-white" : "bg-gray-200 text-gray-400"}`}>
+              ${i <= step ? "bg-brand text-white" : "bg-gray-200 text-gray-400"}`}>
               {i < step ? "✓" : i + 1}
             </div>
-            <span className={`ml-2 text-sm font-medium ${i <= step ? "text-blue-600" : "text-gray-400"}`}>
+            <span className={`ml-2 text-sm font-medium ${i <= step ? "text-brand" : "text-gray-400"}`}>
               {s}
             </span>
             {i < STEPS.length - 1 && (
-              <div className={`flex-1 h-0.5 mx-3 ${i < step ? "bg-blue-600" : "bg-gray-200"}`} />
+              <div className={`flex-1 h-0.5 mx-3 ${i < step ? "bg-brand" : "bg-gray-200"}`} />
             )}
           </div>
         ))}
@@ -477,13 +441,13 @@ const Checkout = () => {
 
       {/* ── STEP 0: Shipping Address ───────────────────── */}
       {step === 0 && (
-        <form onSubmit={handleAddressSubmit} className="bg-white rounded-lg shadow-md p-6 border border-gray-200 space-y-6">
+        <form onSubmit={handleAddressSubmit} className="bg-white rounded-xl shadow-sm p-6 border border-gray-100 space-y-6">
           <div className="flex justify-between items-center">
             <h2 className="font-bold text-gray-800 text-lg">Shipping Address</h2>
             {isBuyNow && <span className="text-xs text-gray-500">Step 1 of 2</span>}
           </div>
 
-          {/* Case 1: No addresses yet */}
+          {/* No addresses yet */}
           {savedAddresses.length === 0 && (
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
               <p className="text-sm text-blue-900">
@@ -492,19 +456,17 @@ const Checkout = () => {
             </div>
           )}
 
-          {/* Saved Addresses (if any exist) */}
+          {/* Saved Addresses */}
           {savedAddresses.length > 0 && (
             <div>
-              <div className="flex justify-between items-center mb-3">
-                <h3 className="font-semibold text-gray-700">Your Saved Addresses</h3>
-              </div>
+              <h3 className="font-semibold text-gray-700 mb-3">Your Saved Addresses</h3>
               <div className="space-y-2 mb-4">
                 {savedAddresses.map((addr) => (
                   <label
                     key={addr._id}
                     className={`block p-4 border-2 rounded-lg cursor-pointer transition ${
                       selectedAddressId === addr._id && !showAddressForm
-                        ? "border-blue-600 bg-blue-50"
+                        ? "border-brand bg-brand-light"
                         : "border-gray-200 hover:border-gray-300"
                     }`}
                   >
@@ -524,7 +486,7 @@ const Checkout = () => {
                         <div className="flex items-center gap-2 mb-1">
                           <p className="font-semibold text-gray-900">{addr.name}</p>
                           {addr.isDefault && (
-                            <span className="text-xs font-semibold text-blue-600 bg-blue-100 px-2 py-0.5 rounded">
+                            <span className="text-xs font-semibold text-brand bg-brand-light px-2 py-0.5 rounded">
                               DEFAULT
                             </span>
                           )}
@@ -540,12 +502,11 @@ const Checkout = () => {
                 ))}
               </div>
 
-              {/* Toggle add new address */}
               {!showAddressForm && (
                 <button
                   type="button"
                   onClick={() => setShowAddressForm(true)}
-                  className="text-blue-600 hover:text-blue-700 font-medium text-sm mb-4"
+                  className="text-brand hover:text-brand-dark font-medium text-sm mb-4"
                 >
                   + Add a Different Address
                 </button>
@@ -553,7 +514,7 @@ const Checkout = () => {
             </div>
           )}
 
-          {/* Address Form - Show when: no addresses OR user clicks "add new" */}
+          {/* Address Form */}
           {showAddressForm && (
             <div>
               <div className="flex justify-between items-center mb-3">
@@ -586,88 +547,125 @@ const Checkout = () => {
             </div>
           )}
 
-          {/* Submit Button - Disabled if no address selected */}
           <button
             type="submit"
             disabled={!selectedAddressId}
-            className="w-full bg-blue-600 text-white font-semibold py-3 rounded-lg hover:bg-blue-700 transition disabled:bg-gray-300 disabled:cursor-not-allowed"
+            className="w-full bg-brand text-white font-semibold py-3 rounded-lg hover:bg-brand-dark transition disabled:bg-gray-300 disabled:cursor-not-allowed"
           >
             {selectedAddressId ? "Continue to Review →" : "Please Select or Add an Address"}
           </button>
         </form>
       )}
 
-      {/* ── STEP 1: Review Order ───────────────────────── */}
+      {/* ── STEP 1: Review Order + Payment Method ──────────── */}
       {step === 1 && (
         <div className="space-y-4">
           {/* Payment Method Selection */}
-          <div className="bg-white rounded-lg shadow-md p-6 border border-gray-200">
-            <h2 className="font-bold text-gray-800 mb-4">Choose Payment Method</h2>
-            <div className="space-y-3">
+          <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+            <h2 className="font-bold text-gray-800 mb-4 text-lg">Choose Payment Method</h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {/* Razorpay Option */}
-              <label className={`flex items-center p-4 border-2 rounded-lg cursor-pointer transition ${
-                paymentMethod === "razorpay" 
-                  ? "border-blue-600 bg-blue-50" 
-                  : "border-gray-200 hover:border-gray-300"
-              }`}>
+              <label
+                id="payment-method-razorpay"
+                className={`flex flex-col items-center p-5 border-2 rounded-xl cursor-pointer transition-all ${
+                  paymentMethod === "razorpay"
+                    ? "border-brand bg-brand-light shadow-md ring-2 ring-brand/30"
+                    : "border-gray-200 hover:border-gray-300 hover:shadow-sm"
+                }`}
+              >
                 <input
                   type="radio"
                   name="paymentMethod"
                   value="razorpay"
                   checked={paymentMethod === "razorpay"}
                   onChange={(e) => setPaymentMethod(e.target.value)}
-                  className="w-4 h-4"
+                  className="sr-only"
                 />
-                <div className="ml-3 flex-1">
-                  <p className="font-semibold text-gray-900">Razorpay</p>
-                  <p className="text-sm text-gray-600">Fast & secure online payment</p>
-                </div>
-                <span className="text-xl">💳</span>
+                <span className="text-3xl mb-2">💳</span>
+                <p className="font-bold text-gray-900 text-base">Razorpay</p>
+                <p className="text-xs text-gray-500 mt-1 text-center">Fast & secure popup checkout</p>
+                {paymentMethod === "razorpay" && (
+                  <span className="mt-2 text-xs font-semibold text-brand bg-white px-3 py-1 rounded-full border border-brand/30">
+                    ✓ Selected
+                  </span>
+                )}
               </label>
 
               {/* PayU Option */}
-              <label className={`flex items-center p-4 border-2 rounded-lg cursor-pointer transition ${
-                paymentMethod === "payu" 
-                  ? "border-green-600 bg-green-50" 
-                  : "border-gray-200 hover:border-gray-300"
-              }`}>
+              <label
+                id="payment-method-payu"
+                className={`flex flex-col items-center p-5 border-2 rounded-xl cursor-pointer transition-all ${
+                  paymentMethod === "payu"
+                    ? "border-green-500 bg-green-50 shadow-md ring-2 ring-green-500/30"
+                    : "border-gray-200 hover:border-gray-300 hover:shadow-sm"
+                }`}
+              >
                 <input
                   type="radio"
                   name="paymentMethod"
                   value="payu"
                   checked={paymentMethod === "payu"}
                   onChange={(e) => setPaymentMethod(e.target.value)}
-                  className="w-4 h-4"
+                  className="sr-only"
                 />
-                <div className="ml-3 flex-1">
-                  <p className="font-semibold text-gray-900">PayU</p>
-                  <p className="text-sm text-gray-600">Trusted payment gateway in India</p>
-                </div>
-                <span className="text-xl">🏦</span>
+                <span className="text-3xl mb-2">🏦</span>
+                <p className="font-bold text-gray-900 text-base">PayU</p>
+                <p className="text-xs text-gray-500 mt-1 text-center">Trusted Indian payment gateway</p>
+                {paymentMethod === "payu" && (
+                  <span className="mt-2 text-xs font-semibold text-green-700 bg-white px-3 py-1 rounded-full border border-green-500/30">
+                    ✓ Selected
+                  </span>
+                )}
               </label>
+            </div>
+
+            {/* Payment method info */}
+            <div className="mt-4 p-3 bg-gray-50 rounded-lg">
+              {paymentMethod === "razorpay" ? (
+                <p className="text-xs text-gray-600">
+                  💡 Razorpay opens a secure popup — you stay on this page during payment.
+                </p>
+              ) : (
+                <p className="text-xs text-gray-600">
+                  💡 PayU will redirect you to a secure payment page. After payment, you'll return to ShopNow automatically.
+                </p>
+              )}
             </div>
           </div>
 
-          <div className="bg-white rounded-lg shadow-md p-6 border border-gray-200">
-            <h2 className="font-bold text-gray-800 mb-4">Order Review</h2>
-            {items.map((item, i) => {
-              const product = item.product;
-              const imageUrl = typeof item.product.images?.[0] === "string"
-                 ? item.product.images[0]
-                 : item.product.images?.[0]?.url;
-              return (
-                <div key={i} className="flex items-center gap-3 mb-3">
-                  <img src={imageUrl} alt={product.name}
-                    className="w-12 h-12 object-cover rounded-lg" />
-                  <div className="flex-1">
-                    <p className="text-sm font-medium text-gray-700">{product.name}</p>
-                    <p className="text-xs text-gray-400">Qty: {item.quantity}</p>
+          {/* Order Review */}
+          <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+            <h2 className="font-bold text-gray-800 mb-4 text-lg">Order Review</h2>
+            <div className="space-y-3">
+              {items.map((item, i) => {
+                const product = item.product || item;
+                const displayName = product?.name || item?.name || "Product";
+                const imageUrl = typeof product?.images?.[0] === "string"
+                  ? product.images[0]
+                  : product?.images?.[0]?.url || item?.image || "";
+                const displayPrice = Number(item.priceAtAdd || item.price || product?.price || 0);
+                const displayQty = Number(item.quantity || item.qty || 1);
+
+                return (
+                  <div key={i} className="flex items-center gap-3">
+                    {imageUrl && (
+                      <img src={imageUrl} alt={displayName}
+                        className="w-14 h-14 object-cover rounded-lg border border-gray-100" />
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-gray-700 line-clamp-1">{displayName}</p>
+                      <p className="text-xs text-gray-400">Qty: {displayQty}</p>
+                    </div>
+                    <p className="font-semibold text-sm text-gray-800">
+                      ₹{(displayPrice * displayQty).toLocaleString()}
+                    </p>
                   </div>
-                  <p className="font-semibold text-sm">₹{(item.priceAtAdd * item.quantity).toLocaleString()}</p>
-                </div>
-              );
-            })}
-            <div className="border-t border-gray-100 pt-3 space-y-1 text-sm">
+                );
+              })}
+            </div>
+
+            {/* Price breakdown */}
+            <div className="border-t border-gray-100 mt-4 pt-3 space-y-1 text-sm">
               <div className="flex justify-between text-gray-500">
                 <span>Subtotal</span><span>₹{itemsPrice.toLocaleString()}</span>
               </div>
@@ -677,54 +675,67 @@ const Checkout = () => {
               <div className="flex justify-between text-gray-500">
                 <span>GST 18%</span><span>₹{tax}</span>
               </div>
-              <div className="flex justify-between font-bold text-gray-800 text-base pt-1 border-t">
-                <span>Total</span><span className="text-blue-600">₹{grandTotal.toLocaleString()}</span>
+              <div className="flex justify-between font-bold text-gray-800 text-base pt-2 border-t border-gray-200">
+                <span>Total</span><span className="text-brand">₹{grandTotal.toLocaleString()}</span>
               </div>
             </div>
           </div>
 
-          <div className="bg-white rounded-lg shadow-md p-6 border border-gray-200 text-sm text-gray-600">
+          {/* Delivery Address Summary */}
+          <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100 text-sm text-gray-600">
             <h3 className="font-semibold text-gray-800 mb-2">Delivering to:</h3>
             <p><strong>{currentAddress.name}</strong></p>
             <p>{currentAddress.street}</p>
             <p>{currentAddress.city}, {currentAddress.state} {currentAddress.pincode}</p>
-            <p className="font-semibold mt-2">{currentAddress.phone}</p>
+            <p className="font-semibold mt-2">📞 {currentAddress.phone}</p>
           </div>
 
+          {/* Action Buttons */}
           <div className="flex gap-3">
             <button onClick={() => setStep(0)} className="flex-1 py-3 bg-gray-200 text-gray-700 font-semibold rounded-lg hover:bg-gray-300 transition">
-              ← Back to Review
+              ← Back
             </button>
             <button
+              id="pay-now-button"
               onClick={handlePayNow}
               disabled={loading || items.length === 0}
-              className="flex-1 py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition disabled:bg-gray-400 disabled:cursor-not-allowed"
+              className={`flex-1 py-3 font-semibold rounded-lg transition disabled:bg-gray-400 disabled:cursor-not-allowed text-white ${
+                paymentMethod === "payu"
+                  ? "bg-green-600 hover:bg-green-700"
+                  : "bg-brand hover:bg-brand-dark"
+              }`}
             >
-              {loading ? "Processing..." : `Proceed with ${paymentMethod === "payu" ? "PayU" : "Razorpay"}`}
+              {loading ? (
+                <span className="flex items-center justify-center gap-2">
+                  <svg className="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/>
+                  </svg>
+                  Processing...
+                </span>
+              ) : (
+                `Pay ₹${grandTotal.toLocaleString()} with ${paymentMethod === "payu" ? "PayU" : "Razorpay"}`
+              )}
             </button>
           </div>
-        </div>
-      )}
 
-      {/* ── PAYMENT INFO HELP ────────────────────────────── */}
-      {step === 1 && (
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mt-6 text-sm text-blue-900 space-y-3">
-          {paymentMethod === "razorpay" ? (
-            <>
-              <p className="font-semibold mb-2">🧪 Razorpay Test Card Information</p>
-              <p>Card Number: <code className="bg-blue-100 px-2 py-1 rounded">4111 1111 1111 1111</code></p>
-              <p>Expiry: Any future date (e.g., 12/25)</p>
-              <p>CVV: Any 3 digits (e.g., 123)</p>
-            </>
-          ) : (
-            <>
-              <p className="font-semibold mb-2">🧪 PayU Test Card Information</p>
-              <p>Card Number: <code className="bg-green-100 px-2 py-1 rounded">4111 1111 1111 1111</code></p>
-              <p>Expiry: Any future date (e.g., 12/25)</p>
-              <p>CVV: Any 3 digits (e.g., 123)</p>
-              <p className="text-xs text-green-800 mt-2">ℹ️ You'll be redirected to PayU's secure checkout. After payment, you'll return to ShopNow.</p>
-            </>
-          )}
+          {/* Test Card Info */}
+          <div className={`rounded-xl p-4 mt-2 text-sm space-y-2 border ${
+            paymentMethod === "razorpay"
+              ? "bg-brand-light border-brand/20 text-brand-dark"
+              : "bg-green-50 border-green-200 text-green-900"
+          }`}>
+            <p className="font-semibold">
+              🧪 {paymentMethod === "razorpay" ? "Razorpay" : "PayU"} Test Card
+            </p>
+            <p>Card: <code className="bg-white/60 px-2 py-0.5 rounded font-mono text-xs">4111 1111 1111 1111</code></p>
+            <p>Expiry: Any future date &bull; CVV: Any 3 digits</p>
+            {paymentMethod === "payu" && (
+              <p className="text-xs opacity-80 mt-1">
+                ℹ️ You'll be redirected to PayU's secure checkout page.
+              </p>
+            )}
+          </div>
         </div>
       )}
     </div>

@@ -1,14 +1,21 @@
 // ============================================================
 //  controllers/paymentController.js
-//  Razorpay integration (test mode) with email notifications
+//  Dual payment gateway: Razorpay + PayU (test mode)
 //
-//  FLOW:
-//  1. Order is created in DB first via /api/orders
-//  2. Frontend sends orderId to /api/payment/create-order
-//  3. This creates a Razorpay order for that orderId
-//  4. Frontend opens Razorpay checkout and user pays
-//  5. Frontend sends payment details to /api/payment/verify
-//  6. We verify signature and mark order as paid + send email
+//  RAZORPAY FLOW:
+//  1. Order created in DB via /api/orders
+//  2. Frontend sends orderId → /api/payment/create-order
+//  3. Creates Razorpay order, frontend opens checkout popup
+//  4. Frontend sends payment details → /api/payment/verify
+//  5. Verify signature, mark order paid, send email
+//
+//  PAYU FLOW:
+//  1. Order created in DB via /api/orders
+//  2. Frontend sends orderId → /api/payment/payu-generate
+//  3. Backend generates hash + payment object
+//  4. Frontend creates hidden form, submits to PayU
+//  5. PayU redirects to surl/furl after payment
+//  6. Backend verifies hash, marks order paid, redirects to frontend
 // ============================================================
 
 const Razorpay = require("razorpay");
@@ -32,12 +39,10 @@ exports.createRazorpayOrder = async (req, res, next) => {
   try {
     const { orderId } = req.body;
 
-    // Validate orderId
     if (!orderId) {
       return res.status(400).json({ success: false, message: "orderId is required" });
     }
 
-    // Fetch our order from MongoDB
     const order = await Order.findById(orderId);
     if (!order) {
       return res.status(404).json({ success: false, message: "Order not found" });
@@ -53,10 +58,9 @@ exports.createRazorpayOrder = async (req, res, next) => {
       return res.status(400).json({ success: false, message: "Order already paid" });
     }
 
-    // Create a Razorpay order
-    // Amount must be in paise (₹1 = 100 paise)
+    // Create a Razorpay order (amount in paise: ₹1 = 100 paise)
     const razorpayOrder = await razorpay.orders.create({
-      amount:   Math.round(order.totalPrice * 100), // Convert ₹ to paise
+      amount:   Math.round(order.totalPrice * 100),
       currency: "INR",
       receipt:  `receipt_${orderId}`,
       notes: {
@@ -67,6 +71,7 @@ exports.createRazorpayOrder = async (req, res, next) => {
 
     // Save the Razorpay order_id to our order record
     order.razorpayOrderId = razorpayOrder.id;
+    order.paymentMethod = "razorpay";
     await order.save();
 
     res.status(200).json({
@@ -74,8 +79,7 @@ exports.createRazorpayOrder = async (req, res, next) => {
       razorpayOrderId: razorpayOrder.id,
       amount:          razorpayOrder.amount,
       currency:        razorpayOrder.currency,
-      // Send key_id to frontend (NEVER send key_secret!)
-      keyId:           process.env.RAZORPAY_KEY_ID,
+      keyId:           process.env.RAZORPAY_KEY_ID,  // NEVER send key_secret!
     });
   } catch (error) {
     console.error("Razorpay order creation error:", error);
@@ -87,16 +91,11 @@ exports.createRazorpayOrder = async (req, res, next) => {
 //  @desc    Verify Razorpay payment signature
 //  @route   POST /api/payment/verify
 //  @access  Private
-//
-//  How signature verification works:
-//  Razorpay creates: HMAC-SHA256(razorpay_order_id + "|" + razorpay_payment_id, secret)
-//  We recreate the same hash and compare — if they match, payment is genuine.
 // ============================================================
 exports.verifyPayment = async (req, res, next) => {
   try {
     const { razorpay_order_id, razorpay_payment_id, razorpay_signature, orderId } = req.body;
 
-    // Validate all required fields
     if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature || !orderId) {
       return res.status(400).json({
         success: false,
@@ -104,14 +103,14 @@ exports.verifyPayment = async (req, res, next) => {
       });
     }
 
-    // 1. Re-create the expected signature
+    // Re-create the expected signature
     const body      = razorpay_order_id + "|" + razorpay_payment_id;
     const expected  = crypto
       .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET)
       .update(body)
       .digest("hex");
 
-    // 2. Compare signatures (timing-safe comparison prevents timing attacks)
+    // Timing-safe comparison prevents timing attacks
     const isAuthentic = crypto.timingSafeEqual(
       Buffer.from(expected),
       Buffer.from(razorpay_signature)
@@ -122,25 +121,25 @@ exports.verifyPayment = async (req, res, next) => {
       return res.status(400).json({ success: false, message: "Payment verification failed - Invalid signature" });
     }
 
-    // 3. Fetch and verify the order
+    // Fetch and verify the order
     const order = await Order.findById(orderId).populate("user", "email name");
     if (!order) {
       return res.status(404).json({ success: false, message: "Order not found" });
     }
 
-    // Verify order belongs to this user
     if (order.user._id.toString() !== req.user._id.toString()) {
       return res.status(403).json({ success: false, message: "Unauthorized - Order does not belong to you" });
     }
 
-    // 4. Mark the order as paid
+    // Mark the order as paid
     order.paymentStatus      = "paid";
+    order.paymentMethod      = "razorpay";
     order.razorpayPaymentId  = razorpay_payment_id;
     order.razorpaySignature  = razorpay_signature;
     order.paidAt             = new Date();
     await order.save();
 
-    // Send payment success email
+    // Send payment success email (non-blocking)
     try {
       await sendEmail(
         order.user.email,
@@ -161,7 +160,7 @@ exports.verifyPayment = async (req, res, next) => {
       console.error("Failed to send payment success email:", emailError);
     }
 
-    console.log("✅ Payment verified for order:", orderId);
+    console.log("✅ Razorpay payment verified for order:", orderId);
 
     res.status(200).json({
       success: true,
@@ -179,21 +178,19 @@ exports.verifyPayment = async (req, res, next) => {
 //  @route   POST /api/payment/payu-generate
 //  @access  Private
 //
-//  This endpoint generates all required PayU payment details
-//  including the security hash. Response is used to create
-//  a form that submits directly to PayU.
+//  Returns all fields needed to create a hidden form that
+//  submits directly to PayU's payment gateway.
 // ============================================================
 exports.generatePayUPayment = async (req, res, next) => {
   try {
     const { orderId } = req.body;
 
-    // Validate orderId
     if (!orderId) {
       return res.status(400).json({ success: false, message: "orderId is required" });
     }
 
-    // Fetch order from MongoDB
-    const order = await Order.findById(orderId).populate("user", "name email");
+    // Fetch order with populated user data
+    const order = await Order.findById(orderId).populate("user", "name email phone");
     if (!order) {
       return res.status(404).json({ success: false, message: "Order not found" });
     }
@@ -208,41 +205,45 @@ exports.generatePayUPayment = async (req, res, next) => {
       return res.status(400).json({ success: false, message: "Order already paid" });
     }
 
-    // Generate PayU payment details
+    // Generate PayU payment details (hash, formatted amount, etc.)
     const paymentObject = createPayUPaymentObject({
       order,
       amount: order.totalPrice,
-      // These URLs are called by PayU after payment
       successUrl: `${process.env.BACKEND_URL}/api/payment/payu-success`,
       failureUrl: `${process.env.BACKEND_URL}/api/payment/payu-failure`,
     });
 
-    // Store transaction ID in order for tracking
+    // Store transaction ID and payment method in order for tracking
     order.payuTxnId = paymentObject.txnid;
     order.paymentMethod = "payu";
     await order.save();
 
-    // Return payment object to frontend
+    // Return ALL fields needed for the PayU form
     res.status(200).json({
       success: true,
       paymentData: {
-        key: paymentObject.key,
-        txnid: paymentObject.txnid,
-        amount: paymentObject.amount,
-        productinfo: paymentObject.productinfo,
-        firstname: paymentObject.firstname,
-        email: paymentObject.email,
-        lastname: paymentObject.lastname,
-        address1: paymentObject.address1,
-        city: paymentObject.city,
-        state: paymentObject.state,
-        zipcode: paymentObject.zipcode,
-        phone: paymentObject.phone,
-        hash: paymentObject.hash,
-        surl: paymentObject.surl,
-        furl: paymentObject.furl,
-        udf1: paymentObject.udf1,
-        udf2: paymentObject.udf2,
+        key:              paymentObject.key,
+        txnid:            paymentObject.txnid,
+        amount:           paymentObject.amount,
+        productinfo:      paymentObject.productinfo,
+        firstname:        paymentObject.firstname,
+        email:            paymentObject.email,
+        phone:            paymentObject.phone,
+        lastname:         paymentObject.lastname,
+        address1:         paymentObject.address1,
+        city:             paymentObject.city,
+        state:            paymentObject.state,
+        zipcode:          paymentObject.zipcode,
+        country:          paymentObject.country,
+        hash:             paymentObject.hash,
+        surl:             paymentObject.surl,
+        furl:             paymentObject.furl,
+        udf1:             paymentObject.udf1,
+        udf2:             paymentObject.udf2,
+        udf3:             paymentObject.udf3,
+        udf4:             paymentObject.udf4,
+        udf5:             paymentObject.udf5,
+        service_provider: paymentObject.service_provider,
       },
       payuTestUrl: "https://test.payu.in/_payment",
     });
@@ -257,60 +258,62 @@ exports.generatePayUPayment = async (req, res, next) => {
 // ============================================================
 //  @desc    Handle PayU payment success callback
 //  @route   POST /api/payment/payu-success
-//  @access  Public (called by PayU, not user)
+//  @access  Public (called by PayU via browser redirect)
 //
-//  PayU will POST the following parameters:
-//  - txnid, status, amount, email, transaction_id, etc.
-//  - hash (generated by PayU for verification)
+//  PayU redirects the browser here with POST data including:
+//  txnid, status, amount, email, firstname, hash, udf1-5, etc.
 // ============================================================
 exports.handlePayUSuccess = async (req, res, next) => {
   try {
     const {
-      txnid,        // Our transaction ID
-      status,       // Payment status (success, failure, pending, etc.)
-      amount,       // Amount paid
-      email,        // Customer email
-      firstname,    // Customer name
+      txnid,
+      status,
+      amount,
+      email,
+      firstname,
       udf1,         // Order ID (custom field we set)
-      hash,         // Hash from PayU for verification
+      hash,
     } = req.body;
 
     console.log("📨 PayU Success Callback Received");
     console.log("   Txn ID:", txnid);
     console.log("   Status:", status);
     console.log("   Amount:", amount);
+    console.log("   UDF1 (orderId):", udf1);
 
     // Validate required fields
     if (!txnid || !status || !amount || !udf1) {
+      console.error("❌ PayU callback missing fields:", { txnid, status, amount, udf1 });
       return res.status(400).json({
         success: false,
         message: "Missing required PayU callback fields",
       });
     }
 
-    // Find order by transaction ID
+    // Find order — first by udf1 (order ID), then by PayU txn ID
     let order = await Order.findById(udf1).populate("user", "email name");
     if (!order) {
-      // Try finding by PayU transaction ID
       order = await Order.findOne({ payuTxnId: txnid }).populate("user", "email name");
     }
 
     if (!order) {
-      console.error("❌ Order not found for PayU txnid:", txnid);
-      return res.status(404).json({ success: false, message: "Order not found" });
+      console.error("❌ Order not found for PayU txnid:", txnid, "udf1:", udf1);
+      return res.redirect(`${process.env.FRONTEND_URL}/orders?paymentStatus=failure&error=order_not_found`);
     }
 
-    // Verify hash (optional but recommended for production)
+    // Verify hash using the correct reverse hash format
     if (hash) {
-      const isValidHash = verifyPayUHash(txnid, amount, status, hash);
+      const isValidHash = verifyPayUHash(req.body);
       if (!isValidHash) {
         console.warn("⚠️ PayU hash verification failed for txnid:", txnid);
-        // Continue anyway, but log it - some PayU setups may have hash mismatches
+        // In test mode, log but continue — in production, you should reject
+      } else {
+        console.log("✅ PayU hash verification passed");
       }
     }
 
     // Check payment status from PayU
-    if (status === "success" || status === "3") {
+    if (status === "success") {
       // Mark order as paid
       order.paymentStatus = "paid";
       order.payuStatus = status;
@@ -340,7 +343,7 @@ exports.handlePayUSuccess = async (req, res, next) => {
         console.error("Failed to send payment success email:", emailError);
       }
 
-      // Redirect to frontend success page with order ID
+      // Redirect to frontend success page
       return res.redirect(`${process.env.FRONTEND_URL}/orders?paymentStatus=success&orderId=${order._id}`);
     } else {
       // Payment failed or pending
@@ -362,24 +365,24 @@ exports.handlePayUSuccess = async (req, res, next) => {
            <br/>
            <p>Please try again or contact our support team if you need assistance.</p>`
         );
-        console.log("✅ Payment failure email sent to:", order.user.email);
       } catch (emailError) {
         console.error("Failed to send payment failure email:", emailError);
       }
 
       // Redirect to frontend failure page
-      return res.redirect(`${process.env.FRONTEND_URL}/checkout?paymentStatus=failure&orderId=${order._id}`);
+      return res.redirect(`${process.env.FRONTEND_URL}/orders?paymentStatus=failure&orderId=${order._id}`);
     }
   } catch (error) {
     console.error("PayU success callback error:", error);
-    next(error);
+    // Always redirect to frontend, even on error
+    return res.redirect(`${process.env.FRONTEND_URL}/orders?paymentStatus=failure&error=server_error`);
   }
 };
 
 // ============================================================
 //  @desc    Handle PayU payment failure callback
 //  @route   POST /api/payment/payu-failure
-//  @access  Public (called by PayU, not user)
+//  @access  Public (called by PayU via browser redirect)
 // ============================================================
 exports.handlePayUFailure = async (req, res, next) => {
   try {
@@ -387,10 +390,14 @@ exports.handlePayUFailure = async (req, res, next) => {
 
     console.log("📨 PayU Failure Callback Received");
     console.log("   Txn ID:", txnid);
+    console.log("   UDF1 (orderId):", udf1);
 
     // Find and update order
-    let order = await Order.findById(udf1).populate("user", "email name");
-    if (!order) {
+    let order = null;
+    if (udf1) {
+      order = await Order.findById(udf1).populate("user", "email name");
+    }
+    if (!order && txnid) {
       order = await Order.findOne({ payuTxnId: txnid }).populate("user", "email name");
     }
 
@@ -398,6 +405,8 @@ exports.handlePayUFailure = async (req, res, next) => {
       order.paymentStatus = "failed";
       order.payuStatus = "failure";
       await order.save();
+
+      console.log("❌ Order marked as failed:", order._id);
 
       // Send failure email
       try {
@@ -416,10 +425,66 @@ exports.handlePayUFailure = async (req, res, next) => {
       }
     }
 
-    // Redirect to checkout with failure status
-    res.redirect(`${process.env.FRONTEND_URL}/checkout?paymentStatus=failure${udf1 ? `&orderId=${udf1}` : ""}`);
+    // Redirect to frontend orders page with failure status
+    res.redirect(`${process.env.FRONTEND_URL}/orders?paymentStatus=failure${udf1 ? `&orderId=${udf1}` : ""}`);
   } catch (error) {
     console.error("PayU failure callback error:", error);
+    res.redirect(`${process.env.FRONTEND_URL}/orders?paymentStatus=failure&error=server_error`);
+  }
+};
+
+// ============================================================
+//  @desc    Retry payment for a failed/pending order
+//  @route   POST /api/payment/retry
+//  @access  Private
+//
+//  Allows user to retry payment on an order that failed or
+//  is still pending. Returns paymentMethod so frontend knows
+//  which gateway to use.
+// ============================================================
+exports.retryPayment = async (req, res, next) => {
+  try {
+    const { orderId, paymentMethod } = req.body;
+
+    if (!orderId) {
+      return res.status(400).json({ success: false, message: "orderId is required" });
+    }
+
+    const order = await Order.findById(orderId).populate("user", "name email phone");
+    if (!order) {
+      return res.status(404).json({ success: false, message: "Order not found" });
+    }
+
+    // Verify order belongs to this user
+    if (order.user._id.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ success: false, message: "Unauthorized" });
+    }
+
+    // Only allow retry for failed or pending orders
+    if (order.paymentStatus === "paid") {
+      return res.status(400).json({ success: false, message: "Order already paid" });
+    }
+
+    // Reset payment status to pending for retry
+    order.paymentStatus = "pending";
+    if (paymentMethod) {
+      order.paymentMethod = paymentMethod;
+    }
+    await order.save();
+
+    console.log("🔄 Payment retry initiated for order:", orderId, "method:", paymentMethod || order.paymentMethod);
+
+    res.status(200).json({
+      success: true,
+      message: "Order ready for payment retry",
+      order: {
+        _id: order._id,
+        totalPrice: order.totalPrice,
+        paymentMethod: paymentMethod || order.paymentMethod || "razorpay",
+      },
+    });
+  } catch (error) {
+    console.error("Retry payment error:", error);
     next(error);
   }
 };
