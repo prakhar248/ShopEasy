@@ -22,7 +22,7 @@ app.use(
     origin:
       process.env.NODE_ENV === "production"
         ? "https://your-production-domain.com"
-        : process.env.FRONTEND_URL || "http://localhost:5173",
+        : process.env.FRONTEND_URL || "http://localhost:3000",
     credentials: true,
   })
 );
