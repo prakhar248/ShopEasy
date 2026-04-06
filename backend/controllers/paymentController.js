@@ -21,6 +21,7 @@
 const Razorpay = require("razorpay");
 const crypto   = require("crypto");
 const Order    = require("../models/Order");
+const Cart     = require("../models/Cart");
 const sendEmail = require("../utils/sendEmail");
 const { createPayUPaymentObject, verifyPayUHash } = require("../utils/payuUtils");
 
@@ -265,6 +266,9 @@ exports.generatePayUPayment = async (req, res, next) => {
 // ============================================================
 exports.handlePayUSuccess = async (req, res, next) => {
   try {
+    // Support BOTH GET and POST — PayU may redirect with either method
+    const data = req.body && Object.keys(req.body).length > 0 ? req.body : req.query;
+
     const {
       txnid,
       status,
@@ -273,9 +277,9 @@ exports.handlePayUSuccess = async (req, res, next) => {
       firstname,
       udf1,         // Order ID (custom field we set)
       hash,
-    } = req.body;
+    } = data;
 
-    console.log("📨 PayU Success Callback Received");
+    console.log("📨 PayU Success Callback Received (method:", req.method, ")");
     console.log("   Txn ID:", txnid);
     console.log("   Status:", status);
     console.log("   Amount:", amount);
@@ -284,10 +288,7 @@ exports.handlePayUSuccess = async (req, res, next) => {
     // Validate required fields
     if (!txnid || !status || !amount || !udf1) {
       console.error("❌ PayU callback missing fields:", { txnid, status, amount, udf1 });
-      return res.status(400).json({
-        success: false,
-        message: "Missing required PayU callback fields",
-      });
+      return res.redirect(`${process.env.FRONTEND_URL}/payment-failed?error=missing_fields`);
     }
 
     // Find order — first by udf1 (order ID), then by PayU txn ID
@@ -298,12 +299,12 @@ exports.handlePayUSuccess = async (req, res, next) => {
 
     if (!order) {
       console.error("❌ Order not found for PayU txnid:", txnid, "udf1:", udf1);
-      return res.redirect(`${process.env.FRONTEND_URL}/orders?paymentStatus=failure&error=order_not_found`);
+      return res.redirect(`${process.env.FRONTEND_URL}/payment-failed?error=order_not_found`);
     }
 
     // Verify hash using the correct reverse hash format
     if (hash) {
-      const isValidHash = verifyPayUHash(req.body);
+      const isValidHash = verifyPayUHash(data);
       if (!isValidHash) {
         console.warn("⚠️ PayU hash verification failed for txnid:", txnid);
         // In test mode, log but continue — in production, you should reject
@@ -322,7 +323,19 @@ exports.handlePayUSuccess = async (req, res, next) => {
 
       console.log("✅ Order marked as paid:", order._id);
 
-      // Send payment success email
+      // Clear user's cart server-side (since PayU redirects lose frontend state)
+      try {
+        const cart = await Cart.findOne({ user: order.user._id });
+        if (cart && cart.items.length > 0) {
+          cart.items = [];
+          await cart.save();
+          console.log("✅ Cart cleared server-side for user:", order.user._id);
+        }
+      } catch (cartError) {
+        console.error("Failed to clear cart:", cartError);
+      }
+
+      // Send payment success email (non-blocking)
       try {
         await sendEmail(
           order.user.email,
@@ -343,8 +356,8 @@ exports.handlePayUSuccess = async (req, res, next) => {
         console.error("Failed to send payment success email:", emailError);
       }
 
-      // Redirect to frontend success page
-      return res.redirect(`${process.env.FRONTEND_URL}/orders?paymentStatus=success&orderId=${order._id}`);
+      // Redirect to dedicated frontend success page
+      return res.redirect(`${process.env.FRONTEND_URL}/payment-success?orderId=${order._id}`);
     } else {
       // Payment failed or pending
       order.paymentStatus = "failed";
@@ -369,13 +382,13 @@ exports.handlePayUSuccess = async (req, res, next) => {
         console.error("Failed to send payment failure email:", emailError);
       }
 
-      // Redirect to frontend failure page
-      return res.redirect(`${process.env.FRONTEND_URL}/orders?paymentStatus=failure&orderId=${order._id}`);
+      // Redirect to dedicated frontend failure page
+      return res.redirect(`${process.env.FRONTEND_URL}/payment-failed?orderId=${order._id}`);
     }
   } catch (error) {
     console.error("PayU success callback error:", error);
     // Always redirect to frontend, even on error
-    return res.redirect(`${process.env.FRONTEND_URL}/orders?paymentStatus=failure&error=server_error`);
+    return res.redirect(`${process.env.FRONTEND_URL}/payment-failed?error=server_error`);
   }
 };
 
@@ -386,9 +399,11 @@ exports.handlePayUSuccess = async (req, res, next) => {
 // ============================================================
 exports.handlePayUFailure = async (req, res, next) => {
   try {
-    const { txnid, udf1 } = req.body;
+    // Support BOTH GET and POST — PayU may redirect with either method
+    const data = req.body && Object.keys(req.body).length > 0 ? req.body : req.query;
+    const { txnid, udf1 } = data;
 
-    console.log("📨 PayU Failure Callback Received");
+    console.log("📨 PayU Failure Callback Received (method:", req.method, ")");
     console.log("   Txn ID:", txnid);
     console.log("   UDF1 (orderId):", udf1);
 
@@ -425,11 +440,11 @@ exports.handlePayUFailure = async (req, res, next) => {
       }
     }
 
-    // Redirect to frontend orders page with failure status
-    res.redirect(`${process.env.FRONTEND_URL}/orders?paymentStatus=failure${udf1 ? `&orderId=${udf1}` : ""}`);
+    // Redirect to dedicated frontend failure page
+    res.redirect(`${process.env.FRONTEND_URL}/payment-failed${udf1 ? `?orderId=${udf1}` : ""}`);
   } catch (error) {
     console.error("PayU failure callback error:", error);
-    res.redirect(`${process.env.FRONTEND_URL}/orders?paymentStatus=failure&error=server_error`);
+    res.redirect(`${process.env.FRONTEND_URL}/payment-failed?error=server_error`);
   }
 };
 

@@ -25,6 +25,8 @@ import SellerDashboard from "./pages/SellerDashboard";
 import AdminDashboard from "./pages/AdminDashboard";
 import CreateProductPage from "./pages/CreateProductPage";
 import SellerStore from "./pages/SellerStore";
+import PaymentSuccess from "./pages/PaymentSuccess";
+import PaymentFailed from "./pages/PaymentFailed";
 
 function App() {
   return (
@@ -43,6 +45,8 @@ function App() {
             <Route path="/seller/:sellerId" element={<SellerStore />} />
             <Route path="/login" element={<Auth mode="login" />} />
             <Route path="/signup" element={<Auth mode="signup" />} />
+            <Route path="/payment-success" element={<PaymentSuccess />} />
+            <Route path="/payment-failed" element={<PaymentFailed />} />
 
             {/* ───────── CUSTOMER ───────── */}
             <Route path="/cart" element={<ProtectedRoute><Cart /></ProtectedRoute>} />

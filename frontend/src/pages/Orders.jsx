@@ -96,12 +96,10 @@ const Orders = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
 
-  // Handle PayU return params
+  // Handle legacy payment return params (in case of direct navigation)
   useEffect(() => {
     const paymentStatus = searchParams.get("paymentStatus");
-    const returnOrderId = searchParams.get("orderId");
-
-    if (paymentStatus === "success" && returnOrderId) {
+    if (paymentStatus === "success") {
       toast.success("🎉 Payment successful! Your order is confirmed.");
     } else if (paymentStatus === "failure") {
       toast.error("Payment failed. You can retry from below.");

@@ -324,10 +324,10 @@ const Checkout = () => {
       const paymentData = paymentResponse.paymentData;
       const payuTestUrl = paymentResponse.payuTestUrl;
 
-      // Clear cart before redirecting (user won't come back to this page)
-      if (!buyNowItem) {
-        clearCart();
-      }
+      // NOTE: Do NOT clear cart here. PayU redirects away from frontend,
+      // and if payment fails the user should keep their cart.
+      // Cart is cleared server-side in handlePayUSuccess callback,
+      // and the PaymentSuccess page syncs the frontend state.
 
       // Create hidden form and submit to PayU gateway
       const form = document.createElement("form");
