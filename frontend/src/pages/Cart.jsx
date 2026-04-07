@@ -1,14 +1,22 @@
 // ============================================================
-//  src/pages/Cart.jsx
-//  Shows cart items with quantity controls + Save for Later
+//  src/pages/Cart.jsx — Shopping cart with summary
 // ============================================================
-
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useCart } from "../context/CartContext";
 import { useAuth } from "../context/AuthContext";
 import { toast } from "react-toastify";
 import api from "../api/axios";
+import {
+  ShoppingCart,
+  Minus,
+  Plus,
+  Trash2,
+  Bookmark,
+  ArrowRight,
+  Package,
+  Truck,
+} from "lucide-react";
 
 const Cart = () => {
   const { cart, loading, updateQuantity, removeFromCart, clearCart } = useCart();
@@ -22,8 +30,8 @@ const Cart = () => {
   const shipping    = totalPrice > 500 ? 0 : 50;
   const tax         = Math.round(totalPrice * 0.18);
   const grandTotal  = totalPrice + shipping + tax;
+  const freeShipProgress = Math.min((totalPrice / 500) * 100, 100);
 
-  // Fetch saved for later items
   useEffect(() => {
     const fetchSavedItems = async () => {
       try {
@@ -39,12 +47,10 @@ const Cart = () => {
     if (user) fetchSavedItems();
   }, [user]);
 
-  // Save item for later
   const handleSaveForLater = async (productId) => {
     try {
       await api.post(`/cart/save-for-later/${productId}`);
       toast.success("Item saved for later");
-      // Refresh saved items
       const { data } = await api.get("/cart/saved-for-later");
       setSavedItems(data.savedForLater || []);
     } catch (err) {
@@ -52,12 +58,10 @@ const Cart = () => {
     }
   };
 
-  // Move saved item to cart
   const handleMoveToCart = async (productId) => {
     try {
-      const { data } = await api.post(`/cart/move-to-cart/${productId}`);
+      await api.post(`/cart/move-to-cart/${productId}`);
       toast.success("Item moved to cart");
-      // Refresh saved items
       const response = await api.get("/cart/saved-for-later");
       setSavedItems(response.data.savedForLater || []);
     } catch (err) {
@@ -65,7 +69,6 @@ const Cart = () => {
     }
   };
 
-  // Remove saved item
   const handleRemoveSavedItem = async (productId) => {
     try {
       await api.delete(`/cart/remove-saved/${productId}`);
@@ -76,161 +79,134 @@ const Cart = () => {
     }
   };
 
+  const getImageUrl = (product) => {
+    return typeof product.images?.[0] === "string"
+      ? product.images[0]
+      : product.images?.[0]?.url || "https://via.placeholder.com/100";
+  };
+
   if (loading) return (
     <div className="flex justify-center py-20">
-      <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-brand" />
+      <div className="animate-spin rounded-full h-10 w-10 border-2 border-gray-200 border-t-brand" />
     </div>
   );
 
-  // Show saved items if cart is empty but have saved items
   if (items.length === 0 && savedItems.length === 0) return (
-    <div className="max-w-2xl mx-auto px-4 py-20 text-center">
-      <p className="text-6xl mb-4">🛒</p>
-      <h2 className="text-2xl font-bold text-gray-700 mb-2">Your cart is empty</h2>
-      <p className="text-gray-400 mb-6">Add some products to get started</p>
+    <div className="max-w-md mx-auto px-4 py-24 text-center">
+      <div className="w-16 h-16 rounded-2xl bg-gray-100 mx-auto mb-5 flex items-center justify-center">
+        <ShoppingCart className="w-7 h-7 text-gray-400" />
+      </div>
+      <h2 className="text-xl font-bold text-gray-900 mb-1.5">Your cart is empty</h2>
+      <p className="text-gray-500 text-sm mb-6">Add some products to get started</p>
       <Link to="/products" className="btn-primary">Browse Products</Link>
     </div>
   );
 
   return (
-    <div className="max-w-6xl mx-auto px-4 py-10">
-      <h1 className="text-3xl font-bold text-gray-800 mb-8">Shopping Cart</h1>
+    <div className="max-w-6xl mx-auto px-4 py-8">
+      <h1 className="text-2xl font-bold text-gray-900 mb-6">Shopping Cart</h1>
 
-      <div className="grid md:grid-cols-3 gap-8">
+      <div className="grid lg:grid-cols-3 gap-8">
 
-        {/* ── Cart Items ─────────────────────────────────── */}
-        <div className="md:col-span-2 space-y-4">
+        {/* Cart Items */}
+        <div className="lg:col-span-2 space-y-3">
           {items.length > 0 && (
             <>
-              <h2 className="font-bold text-gray-800 text-lg">Cart Items</h2>
+              <div className="flex items-center justify-between mb-1">
+                <p className="text-sm text-gray-500">{items.length} item{items.length > 1 ? "s" : ""}</p>
+                <button onClick={clearCart} className="text-sm text-red-500 hover:text-red-600 font-medium inline-flex items-center gap-1">
+                  <Trash2 className="w-3.5 h-3.5" /> Clear Cart
+                </button>
+              </div>
+
               {items.map((item) => (
                 <div key={item._id} className="card flex gap-4">
-                  {/* Product image */}
-                  <Link to={`/products/${item.product._id}`}>
-                    {(() => {
-                      // Handle images that can be either strings or {url, publicId} objects
-                      const imageUrl = typeof item.product.images?.[0] === "string"
-                        ? item.product.images[0]
-                        : item.product.images?.[0]?.url || "https://via.placeholder.com/100";
-                      return (
-                        <img
-                          src={imageUrl}
-                          alt={item.product.name}
-                          className="w-24 h-24 object-cover rounded-xl flex-shrink-0"
-                        />
-                      );
-                    })()}
+                  <Link to={`/products/${item.product._id}`} className="shrink-0">
+                    <img
+                      src={getImageUrl(item.product)}
+                      alt={item.product.name}
+                      className="w-20 h-20 sm:w-24 sm:h-24 object-cover rounded-lg"
+                    />
                   </Link>
 
-                  {/* Details */}
                   <div className="flex-1 min-w-0">
                     <Link to={`/products/${item.product._id}`}
-                      className="font-semibold text-gray-800 hover:text-brand line-clamp-2 text-sm">
+                          className="font-medium text-gray-900 hover:text-brand text-sm line-clamp-2 transition-colors">
                       {item.product.name}
                     </Link>
-                    <p className="text-brand font-bold text-lg mt-1">₹{item.priceAtAdd.toLocaleString()}</p>
+                    <p className="text-brand font-bold mt-1">₹{item.priceAtAdd.toLocaleString()}</p>
 
-                    {/* Quantity controls */}
-                    <div className="flex items-center gap-3 mt-2 flex-wrap">
-                      <div className="flex items-center border border-gray-300 rounded-lg overflow-hidden text-sm">
+                    <div className="flex items-center gap-3 mt-2.5 flex-wrap">
+                      {/* Quantity */}
+                      <div className="flex items-center border border-gray-200 rounded-lg">
                         <button
                           onClick={() => updateQuantity(item.product._id, item.quantity - 1)}
                           disabled={item.quantity <= 1}
-                          className="px-3 py-1 hover:bg-gray-100 disabled:opacity-40 font-bold"
-                        >−</button>
-                        <span className="px-3 py-1 border-x border-gray-300 font-semibold">
+                          className="p-1.5 hover:bg-gray-50 disabled:opacity-30 transition-colors rounded-l-lg"
+                        >
+                          <Minus className="w-3.5 h-3.5" />
+                        </button>
+                        <span className="px-3 py-1 text-sm font-semibold text-gray-800 border-x border-gray-200 min-w-[32px] text-center">
                           {item.quantity}
                         </span>
                         <button
                           onClick={() => updateQuantity(item.product._id, item.quantity + 1)}
                           disabled={item.quantity >= item.product.stock}
-                          className="px-3 py-1 hover:bg-gray-100 disabled:opacity-40 font-bold"
-                        >+</button>
+                          className="p-1.5 hover:bg-gray-50 disabled:opacity-30 transition-colors rounded-r-lg"
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                        </button>
                       </div>
 
-                      <button
-                        onClick={() => removeFromCart(item.product._id)}
-                        className="text-red-400 hover:text-red-600 text-sm"
-                      >
-                        Remove
+                      <button onClick={() => handleSaveForLater(item.product._id)}
+                              className="btn-ghost py-1 px-2 text-xs text-gray-500">
+                        <Bookmark className="w-3.5 h-3.5" /> Save
                       </button>
-
-                      <button
-                        onClick={() => handleSaveForLater(item.product._id)}
-                        className="text-blue-400 hover:text-blue-600 text-sm"
-                      >
-                        💾 Save for Later
+                      <button onClick={() => removeFromCart(item.product._id)}
+                              className="btn-ghost py-1 px-2 text-xs text-red-500 hover:text-red-600 hover:bg-red-50">
+                        <Trash2 className="w-3.5 h-3.5" /> Remove
                       </button>
                     </div>
                   </div>
 
-                  {/* Line total */}
-                  <div className="text-right flex-shrink-0">
-                    <p className="font-bold text-gray-800">
+                  <div className="text-right shrink-0 hidden sm:block">
+                    <p className="font-bold text-gray-900 text-sm">
                       ₹{(item.priceAtAdd * item.quantity).toLocaleString()}
                     </p>
                   </div>
                 </div>
               ))}
-
-              <button onClick={clearCart} className="text-sm text-red-400 hover:text-red-600">
-                🗑️ Clear Cart
-              </button>
             </>
           )}
 
-          {/* ── Saved for Later Section ────────────────────── */}
+          {/* Saved for Later */}
           {savedItems.length > 0 && (
-            <div className="mt-12 pt-8 border-t border-gray-200">
-              <h2 className="font-bold text-gray-800 text-lg mb-4">
-                💾 Saved for Later ({savedItems.length})
+            <div className="mt-10 pt-6 border-t border-gray-200">
+              <h2 className="font-semibold text-gray-900 mb-3 flex items-center gap-2 text-sm">
+                <Bookmark className="w-4 h-4 text-gray-400" />
+                Saved for Later ({savedItems.length})
               </h2>
               <div className="space-y-3">
                 {savedItems.map((saved) => (
                   <div key={saved.product._id} className="card flex gap-4">
-                    {/* Product image */}
                     <Link to={`/products/${saved.product._id}`}>
-                      {(() => {
-                        const imageUrl = typeof saved.product.images?.[0] === "string"
-                          ? saved.product.images[0]
-                          : saved.product.images?.[0]?.url || "https://via.placeholder.com/100";
-                        return (
-                          <img
-                            src={imageUrl}
-                            alt={saved.product.name}
-                            className="w-20 h-20 object-cover rounded-lg flex-shrink-0"
-                          />
-                        );
-                      })()}
+                      <img src={getImageUrl(saved.product)} alt={saved.product.name}
+                           className="w-16 h-16 object-cover rounded-lg" />
                     </Link>
-
-                    {/* Details */}
                     <div className="flex-1 min-w-0">
                       <Link to={`/products/${saved.product._id}`}
-                        className="font-semibold text-gray-800 hover:text-brand line-clamp-2 text-sm">
+                            className="font-medium text-gray-900 hover:text-brand text-sm line-clamp-1 transition-colors">
                         {saved.product.name}
                       </Link>
-                      <p className="text-brand font-bold mt-1">
+                      <p className="text-brand font-bold text-sm mt-0.5">
                         ₹{(saved.product.discountedPrice || saved.product.price).toLocaleString()}
                       </p>
-                      <p className="text-xs text-gray-400 mt-1">
-                        Qty: {saved.quantity}
-                      </p>
-
-                      {/* Action buttons */}
-                      <div className="flex items-center gap-3 mt-2">
-                        <button
-                          onClick={() => handleMoveToCart(saved.product._id)}
-                          className="btn-primary text-xs py-1.5 px-3"
-                        >
+                      <div className="flex items-center gap-2 mt-2">
+                        <button onClick={() => handleMoveToCart(saved.product._id)} className="btn-primary text-xs py-1.5 px-3">
                           Move to Cart
                         </button>
-                        <button
-                          onClick={() => handleRemoveSavedItem(saved.product._id)}
-                          className="text-red-400 hover:text-red-600 text-xs"
-                        >
-                          Remove
-                        </button>
+                        <button onClick={() => handleRemoveSavedItem(saved.product._id)}
+                                className="text-xs text-red-500 hover:text-red-600 font-medium">Remove</button>
                       </div>
                     </div>
                   </div>
@@ -240,49 +216,59 @@ const Cart = () => {
           )}
         </div>
 
-        {/* ── Order Summary ──────────────────────────────– */}
+        {/* Order Summary */}
         {items.length > 0 && (
-          <div className="card h-fit sticky top-24">
-            <h2 className="font-bold text-gray-800 text-lg mb-4">Order Summary</h2>
+          <div className="lg:col-span-1">
+            <div className="card sticky top-24 space-y-4">
+              <h2 className="font-semibold text-gray-900">Order Summary</h2>
 
-            <div className="space-y-3 text-sm border-b border-gray-100 pb-4 mb-4">
-              <div className="flex justify-between text-gray-600">
-                <span>Subtotal</span>
-                <span className="font-medium">₹{totalPrice.toLocaleString()}</span>
+              {/* Free shipping progress */}
+              {totalPrice < 500 && (
+                <div className="bg-amber-50 border border-amber-100 rounded-lg p-3">
+                  <div className="flex items-center gap-2 text-xs text-amber-700 mb-1.5">
+                    <Truck className="w-3.5 h-3.5" />
+                    <span>Add ₹{(500 - totalPrice).toFixed(0)} more for free shipping</span>
+                  </div>
+                  <div className="w-full h-1.5 bg-amber-200 rounded-full">
+                    <div className="h-full bg-amber-500 rounded-full transition-all duration-300"
+                         style={{ width: `${freeShipProgress}%` }} />
+                  </div>
+                </div>
+              )}
+
+              <div className="space-y-2.5 text-sm border-b border-gray-100 pb-4">
+                <div className="flex justify-between text-gray-600">
+                  <span>Subtotal</span>
+                  <span className="font-medium text-gray-800">₹{totalPrice.toLocaleString()}</span>
+                </div>
+                <div className="flex justify-between text-gray-600">
+                  <span>Shipping</span>
+                  <span className={shipping === 0 ? "text-accent font-medium" : "font-medium text-gray-800"}>
+                    {shipping === 0 ? "FREE" : `₹${shipping}`}
+                  </span>
+                </div>
+                <div className="flex justify-between text-gray-600">
+                  <span>GST (18%)</span>
+                  <span className="font-medium text-gray-800">₹{tax.toLocaleString()}</span>
+                </div>
               </div>
-              <div className="flex justify-between text-gray-600">
-                <span>Shipping</span>
-                <span className={shipping === 0 ? "text-green-600 font-medium" : "font-medium"}>
-                  {shipping === 0 ? "FREE" : `₹${shipping}`}
-                </span>
+
+              <div className="flex justify-between font-bold text-gray-900 text-lg pt-1">
+                <span>Total</span>
+                <span>₹{grandTotal.toLocaleString()}</span>
               </div>
-              <div className="flex justify-between text-gray-600">
-                <span>GST (18%)</span>
-                <span className="font-medium">₹{tax.toLocaleString()}</span>
-              </div>
+
+              <button
+                onClick={() => navigate("/checkout")}
+                className="btn-primary w-full py-3 text-sm"
+              >
+                Proceed to Checkout <ArrowRight className="w-4 h-4" />
+              </button>
+
+              <Link to="/products" className="btn-secondary w-full py-2.5 text-sm text-center block">
+                Continue Shopping
+              </Link>
             </div>
-
-            <div className="flex justify-between font-bold text-gray-800 text-lg mb-6">
-              <span>Total</span>
-              <span className="text-brand">₹{grandTotal.toLocaleString()}</span>
-            </div>
-
-            {totalPrice > 0 && totalPrice <= 500 && (
-              <p className="text-xs text-center text-gray-400 mb-3">
-                Add ₹{(500 - totalPrice).toFixed(0)} more for free shipping!
-              </p>
-            )}
-
-            <button
-              onClick={() => navigate("/checkout")}
-              className="btn-primary w-full py-3 text-base"
-            >
-              Proceed to Checkout →
-            </button>
-
-            <Link to="/products" className="btn-secondary w-full py-2.5 text-sm text-center block mt-3">
-              Continue Shopping
-            </Link>
           </div>
         )}
       </div>

@@ -9,6 +9,7 @@ import api from "../api/axios";
 import { useCart } from "../context/CartContext";
 import { useAuth } from "../context/AuthContext";
 import { toast } from "react-toastify";
+import { ShoppingCart, Zap, CheckCircle, XCircle, Minus, Plus, Info, MessageSquare } from "lucide-react";
 
 // ── Star Rating Component ─────────────────────────────────────
 // Interactive when editable, static when display-only
@@ -249,7 +250,7 @@ const ProductDetail = () => {
   // Loading state
   if (loading) return (
     <div className="flex justify-center py-20">
-      <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-brand" />
+      <div className="animate-spin rounded-full h-10 w-10 border-2 border-gray-200 border-t-brand" />
     </div>
   );
 
@@ -348,8 +349,10 @@ const ProductDetail = () => {
             <p className="text-gray-600 text-sm leading-relaxed">{product.description}</p>
 
             {/* Stock */}
-            <p className={`text-sm font-semibold ${product.stock > 0 ? "text-green-600" : "text-red-600"}`}>
-              {product.stock > 0 ? `✓ In Stock (${product.stock} left)` : "✗ Out of Stock"}
+            <p className={`text-sm font-semibold flex items-center gap-1.5 ${product.stock > 0 ? "text-accent-dark" : "text-red-600"}`}>
+              {product.stock > 0
+                ? <><CheckCircle className="w-4 h-4" /> In Stock ({product.stock} left)</>
+                : <><XCircle className="w-4 h-4" /> Out of Stock</>}
             </p>
 
             {/* Quantity */}
@@ -379,16 +382,16 @@ const ProductDetail = () => {
               <button
                 onClick={handleAddToCart}
                 disabled={product.stock === 0}
-                className="flex-1 bg-yellow-400 hover:bg-yellow-500 disabled:bg-gray-300 text-gray-800 font-semibold py-2 rounded-lg transition"
+                className="btn-secondary flex-1 py-2.5"
               >
-                🛒 Add to Cart
+                <ShoppingCart className="w-4 h-4" /> Add to Cart
               </button>
               <button
                 onClick={handleBuyNow}
                 disabled={product.stock === 0}
-                className="flex-1 bg-orange-500 hover:bg-orange-600 disabled:bg-gray-300 text-white font-semibold py-2 rounded-lg transition"
+                className="btn-primary flex-1 py-2.5"
               >
-                Buy Now
+                <Zap className="w-4 h-4" /> Buy Now
               </button>
             </div>
           </div>
@@ -528,8 +531,8 @@ const ProductDetail = () => {
             {/* Logged in but hasn't purchased */}
             {user && !canReview && (
               <div className="bg-blue-50 rounded-xl border border-blue-200 p-5">
-                <p className="text-blue-800 text-sm">
-                  ℹ️ You can only review products you've purchased and paid for.
+                <p className="text-blue-800 text-sm flex items-center gap-2">
+                  <Info className="w-4 h-4 shrink-0" /> You can only review products you've purchased and paid for.
                 </p>
               </div>
             )}
@@ -549,10 +552,12 @@ const ProductDetail = () => {
                 </div>
               </div>
             ) : (
-              <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-8 text-center">
-                <p className="text-4xl mb-3">📝</p>
-                <p className="text-gray-500 font-medium">No reviews yet</p>
-                <p className="text-gray-400 text-sm mt-1">
+              <div className="card p-8 text-center">
+                <div className="w-12 h-12 rounded-xl bg-gray-100 mx-auto mb-3 flex items-center justify-center">
+                  <MessageSquare className="w-5 h-5 text-gray-400" />
+                </div>
+                <p className="text-gray-600 font-medium text-sm">No reviews yet</p>
+                <p className="text-gray-400 text-xs mt-1">
                   Be the first to share your thoughts about this product.
                 </p>
               </div>

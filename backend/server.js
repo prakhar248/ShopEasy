@@ -1,5 +1,5 @@
 // ============================================================
-//  server.js — Updated with Email Test Route
+//  server.js — Multi-vendor E-commerce Backend
 // ============================================================
 
 require("dotenv").config(); // MUST be at top
@@ -51,12 +51,12 @@ const sendEmail = require("./utils/sendEmail");
 
 app.get("/api/test-email", async (req, res) => {
   try {
-    await sendEmail(
-      "prakharchouhan.dev@gmail.com",
-      "Test Email 🚀",
-      "<h1>Email is working successfully!</h1>"
-    );
-    res.send("✅ Email sent successfully!");
+    await sendEmail({
+      to: "prakharchouhan.dev@gmail.com",
+      subject: "Test Email 🚀",
+      html: "<h1>Resend email is working successfully!</h1>",
+    });
+    res.send("✅ Email sent successfully via Resend!");
   } catch (err) {
     console.error("❌ Email error:", err.message);
     res.status(500).send("❌ Email failed");

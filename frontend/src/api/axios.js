@@ -19,7 +19,9 @@ function isAuthPublicRoute(config) {
     url.includes("auth/login") ||
     url.includes("auth/signup") ||
     url.includes("auth/forgot-password") ||
-    url.includes("auth/reset-password")
+    url.includes("auth/reset-password") ||
+    url.includes("auth/verify-otp") ||
+    url.includes("auth/resend-otp")
   );
 }
 

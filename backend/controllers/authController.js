@@ -1,12 +1,16 @@
 // ============================================================
-//  controllers/authController.js  —  UPDATED for multi-vendor
-//  Change: signup now accepts `role` and auto-creates Seller doc
+//  controllers/authController.js  —  OTP-based verification
+//  Uses Resend for email, SHA-256 hashed OTPs with expiry.
 // ============================================================
 
-const crypto = require("crypto");
 const User   = require("../models/User");
 const Seller = require("../models/Seller");
-const sendEmail = require("../utils/sendEmail");
+const sendEmail      = require("../utils/sendEmail");
+const emailTemplate  = require("../utils/emailTemplate");
+const { generateOTP, hashOTP, verifyOTP } = require("../utils/otpUtils");
+
+// OTP validity duration: 10 minutes
+const OTP_EXPIRY_MS = 10 * 60 * 1000;
 
 // Helper: build JWT response object
 const sendTokenResponse = (user, statusCode, res) => {
@@ -27,7 +31,6 @@ exports.signup = async (req, res, next) => {
     const { name, email, password, role = "customer", storeName, storeDescription } = req.body;
 
     // 1. Validate role — only customer and seller allowed via public signup
-    //    Admin accounts must be created manually in the database
     if (role === "admin") {
       return res.status(400).json({
         success: false,
@@ -58,24 +61,38 @@ exports.signup = async (req, res, next) => {
         user:             user._id,
         storeName:        storeName.trim(),
         storeDescription: storeDescription?.trim() || "",
-        isApproved:       false, // Admin must approve before seller can list products
+        isApproved:       false,
       });
     }
 
-    // 6. Generate email verification token and send verification email
-    const token = crypto.randomBytes(32).toString("hex");
-    user.emailVerificationToken = token;
-    user.emailVerificationExpire = Date.now() + 10 * 60 * 1000;
+    // 6. Generate OTP, hash it, store with expiry
+    const otp = generateOTP();
+    user.otpHash    = hashOTP(otp);
+    user.otpExpires = new Date(Date.now() + OTP_EXPIRY_MS);
     await user.save();
 
-    const verifyUrl = `http://localhost:5000/api/auth/verify-email/${token}`;
-    const subject = "Verify Your Email";
-    const html = `<h2>Email Verification</h2><a href="${verifyUrl}">Verify Email</a>`;
-    await sendEmail(user.email, subject, html);
+    // 7. Send verification OTP email
+    const html = emailTemplate({
+      title: "Verify Your Account",
+      greeting: `Hi ${user.name},`,
+      body: `
+        <p>Welcome to <strong>ShopperStop</strong>! We're excited to have you on board.</p>
+        <p>Please use the verification code below to activate your account:</p>
+      `,
+      otp,
+      footer: "If you didn't create an account on ShopperStop, you can safely ignore this email.",
+    });
+
+    await sendEmail({
+      to: user.email,
+      subject: "Verify Your Account — ShopperStop",
+      html,
+    });
 
     res.status(201).json({
       success: true,
-      message: "Signup successful, please verify email",
+      message: "Signup successful! Please check your email for the verification OTP.",
+      email: user.email,
     });
   } catch (error) {
     next(error);
@@ -83,27 +100,106 @@ exports.signup = async (req, res, next) => {
 };
 
 // ============================================================
-//  @desc    Verify email address via link sent in email
-//  @route   GET /api/auth/verify-email/:token
+//  @desc    Verify email using OTP
+//  @route   POST /api/auth/verify-otp
 //  @access  Public
 // ============================================================
-exports.verifyEmail = async (req, res, next) => {
+exports.verifyOtp = async (req, res, next) => {
   try {
-    const user = await User.findOne({
-      emailVerificationToken: req.params.token,
-      emailVerificationExpire: { $gt: Date.now() },
-    });
+    const { email, otp } = req.body;
 
-    if (!user) {
-      return res.status(400).json({ success: false, message: "Invalid or expired verification token" });
+    if (!email || !otp) {
+      return res.status(400).json({
+        success: false,
+        message: "Email and OTP are required.",
+      });
     }
 
-    user.isEmailVerified = true;
-    user.emailVerificationToken = undefined;
-    user.emailVerificationExpire = undefined;
+    const user = await User.findOne({ email }).select("+otpHash +otpExpires");
+    if (!user) {
+      return res.status(404).json({ success: false, message: "User not found." });
+    }
+
+    if (user.isVerified) {
+      return res.status(400).json({ success: false, message: "Email is already verified." });
+    }
+
+    // Check expiry
+    if (!user.otpExpires || user.otpExpires < Date.now()) {
+      return res.status(400).json({
+        success: false,
+        message: "OTP has expired. Please request a new one.",
+      });
+    }
+
+    // Verify OTP hash
+    if (!user.otpHash || !verifyOTP(otp, user.otpHash)) {
+      return res.status(400).json({ success: false, message: "Invalid OTP." });
+    }
+
+    // Mark as verified, clear OTP fields
+    user.isVerified = true;
+    user.otpHash    = undefined;
+    user.otpExpires = undefined;
     await user.save();
 
-    res.status(200).json({ success: true, message: "Email verified successfully" });
+    res.status(200).json({
+      success: true,
+      message: "Email verified successfully! You can now log in.",
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// ============================================================
+//  @desc    Resend verification OTP
+//  @route   POST /api/auth/resend-otp
+//  @access  Public
+// ============================================================
+exports.resendOtp = async (req, res, next) => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      return res.status(400).json({ success: false, message: "Email is required." });
+    }
+
+    const user = await User.findOne({ email }).select("+otpHash +otpExpires");
+    if (!user) {
+      return res.status(404).json({ success: false, message: "User not found." });
+    }
+
+    if (user.isVerified) {
+      return res.status(400).json({ success: false, message: "Email is already verified." });
+    }
+
+    // Generate new OTP
+    const otp = generateOTP();
+    user.otpHash    = hashOTP(otp);
+    user.otpExpires = new Date(Date.now() + OTP_EXPIRY_MS);
+    await user.save();
+
+    const html = emailTemplate({
+      title: "Verify Your Account",
+      greeting: `Hi ${user.name},`,
+      body: `
+        <p>Here is your new verification code for <strong>ShopperStop</strong>:</p>
+      `,
+      otp,
+      footer: "If you didn't request this code, you can safely ignore this email.",
+    });
+
+    await sendEmail({
+      to: user.email,
+      subject: "Your New Verification Code — ShopperStop",
+      html,
+    });
+
+    res.status(200).json({
+      success: true,
+      message: "A new OTP has been sent to your email.",
+    });
   } catch (error) {
     next(error);
   }
@@ -133,15 +229,16 @@ exports.login = async (req, res, next) => {
       return res.status(401).json({ success: false, message: "Invalid credentials." });
     }
 
-    if (!user.isEmailVerified) {
+    if (!user.isVerified) {
       return res.status(403).json({
         success: false,
-        message: "Please verify your email",
+        message: "Please verify your email before logging in.",
+        email: user.email,
+        requiresVerification: true,
       });
     }
 
     // For sellers: attach their approval status to the response
-    // The frontend uses this to show pending/approved state
     let sellerProfile = null;
     if (user.role === "seller") {
       sellerProfile = await Seller.findOne({ user: user._id });
@@ -163,7 +260,7 @@ exports.login = async (req, res, next) => {
 };
 
 // ============================================================
-//  @desc    Send forgot password reset email
+//  @desc    Send forgot password OTP
 //  @route   POST /api/auth/forgot-password
 //  @access  Public
 // ============================================================
@@ -173,55 +270,93 @@ exports.forgotPassword = async (req, res, next) => {
 
     const user = await User.findOne({ email });
     if (!user) {
-      return res.status(404).json({ success: false, message: "User not found" });
+      return res.status(404).json({ success: false, message: "No account found with that email." });
     }
 
-    const token = crypto.randomBytes(32).toString("hex");
-    user.resetPasswordToken = token;
-    user.resetPasswordExpire = Date.now() + 10 * 60 * 1000;
+    // Generate OTP for password reset
+    const otp = generateOTP();
+    user.resetOtpHash    = hashOTP(otp);
+    user.resetOtpExpires = new Date(Date.now() + OTP_EXPIRY_MS);
     await user.save();
 
-    const resetUrl = `http://localhost:5000/api/auth/reset-password/${token}`;
-    const subject = "Reset Your Password";
-    const html = `<h2>Password Reset</h2><a href="${resetUrl}">Reset Password</a>`;
-    await sendEmail(user.email, subject, html);
+    const html = emailTemplate({
+      title: "Reset Your Password",
+      greeting: `Hi ${user.name},`,
+      body: `
+        <p>We received a request to reset your <strong>ShopperStop</strong> password.</p>
+        <p>Use the code below to reset your password:</p>
+      `,
+      otp,
+      footer: "If you didn't request a password reset, you can safely ignore this email. Your password will remain unchanged.",
+    });
 
-    res.status(200).json({ success: true, message: "Reset link sent to email" });
+    await sendEmail({
+      to: user.email,
+      subject: "Reset Your Password — ShopperStop",
+      html,
+    });
+
+    res.status(200).json({
+      success: true,
+      message: "Password reset OTP sent to your email.",
+      email: user.email,
+    });
   } catch (error) {
     next(error);
   }
 };
 
 // ============================================================
-//  @desc    Reset password using valid reset token
-//  @route   PUT /api/auth/reset-password/:token
+//  @desc    Reset password using OTP
+//  @route   POST /api/auth/reset-password
 //  @access  Public
 // ============================================================
 exports.resetPassword = async (req, res, next) => {
   try {
-    const { token } = req.params;
-    const { newPassword, password } = req.body;
-    const nextPassword = newPassword || password;
+    const { email, otp, newPassword } = req.body;
 
-    if (!nextPassword) {
-      return res.status(400).json({ success: false, message: "New password is required" });
+    if (!email || !otp || !newPassword) {
+      return res.status(400).json({
+        success: false,
+        message: "Email, OTP, and new password are required.",
+      });
     }
 
-    const user = await User.findOne({
-      resetPasswordToken: token,
-      resetPasswordExpire: { $gt: Date.now() },
-    }).select("+password");
+    if (newPassword.length < 6) {
+      return res.status(400).json({
+        success: false,
+        message: "Password must be at least 6 characters.",
+      });
+    }
 
+    const user = await User.findOne({ email }).select("+resetOtpHash +resetOtpExpires +password");
     if (!user) {
-      return res.status(400).json({ success: false, message: "Invalid or expired reset token" });
+      return res.status(404).json({ success: false, message: "User not found." });
     }
 
-    user.password = nextPassword;
-    user.resetPasswordToken = undefined;
-    user.resetPasswordExpire = undefined;
+    // Check expiry
+    if (!user.resetOtpExpires || user.resetOtpExpires < Date.now()) {
+      return res.status(400).json({
+        success: false,
+        message: "OTP has expired. Please request a new one.",
+      });
+    }
+
+    // Verify OTP
+    if (!user.resetOtpHash || !verifyOTP(otp, user.resetOtpHash)) {
+      return res.status(400).json({ success: false, message: "Invalid OTP." });
+    }
+
+    // Update password and clear reset OTP fields
+    user.password        = newPassword;
+    user.resetOtpHash    = undefined;
+    user.resetOtpExpires = undefined;
     await user.save();
 
-    res.status(200).json({ success: true, message: "Password reset successful" });
+    res.status(200).json({
+      success: true,
+      message: "Password reset successful! You can now log in with your new password.",
+    });
   } catch (error) {
     next(error);
   }

@@ -1,21 +1,19 @@
 // ============================================================
-//  src/pages/Products.jsx
-//  Product listing with search (debounced), filters, sorting
+//  src/pages/Products.jsx — Product listing with filters
 // ============================================================
-
 import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import api from "../api/axios";
 import ProductCard from "../components/ProductCard";
+import { Search, SlidersHorizontal, X, ChevronLeft, ChevronRight } from "lucide-react";
 
 const CATEGORIES = ["All", "Electronics", "Clothing", "Books", "Home", "Sports", "Beauty"];
 
 const Products = () => {
-  const [searchParams, setSearchParams] = useSearchParams();
+  const [searchParams] = useSearchParams();
 
-  // Read initial values from URL query params
-  const [searchInput, setSearchInput] = useState(searchParams.get("search")   || ""); // Raw input
-  const [search,      setSearch]      = useState(searchParams.get("search")   || ""); // Debounced (used for API)
+  const [searchInput, setSearchInput] = useState(searchParams.get("search")   || "");
+  const [search,      setSearch]      = useState(searchParams.get("search")   || "");
   const [category,    setCategory]    = useState(searchParams.get("category") || "All");
   const [minPrice,    setMinPrice]    = useState(searchParams.get("minPrice") || "");
   const [maxPrice,    setMaxPrice]    = useState(searchParams.get("maxPrice") || "");
@@ -26,21 +24,18 @@ const Products = () => {
   const [totalPages, setTotalPages] = useState(1);
   const [total,      setTotal]      = useState(0);
   const [loading,    setLoading]    = useState(false);
+  const [showMobileFilters, setShowMobileFilters] = useState(false);
 
-  // ── DEBOUNCE SEARCH (500ms delay) ───────────────────────
-  // When user types, update searchInput immediately
-  // But only trigger API call after they stop typing for 500ms
+  // Debounce search
   useEffect(() => {
     const delay = setTimeout(() => {
       setSearch(searchInput);
-      setPage(1); // Reset to first page on search
+      setPage(1);
     }, 500);
-
     return () => clearTimeout(delay);
   }, [searchInput]);
 
-  // ── FETCH PRODUCTS ──────────────────────────────────────
-  // Triggered when search (debounced), category, price, sort, or page changes
+  // Fetch products
   useEffect(() => {
     const fetchProducts = async () => {
       setLoading(true);
@@ -54,7 +49,6 @@ const Products = () => {
           page,
           limit: 12,
         });
-
         const { data } = await api.get(`/products?${params}`);
         setProducts(data.products);
         setTotalPages(data.totalPages);
@@ -68,12 +62,11 @@ const Products = () => {
     fetchProducts();
   }, [search, category, minPrice, maxPrice, sort, page]);
 
-  // Reset to page 1 whenever category, price, or sort changes
   const handleFilter = (key, value) => {
     if (key === "search") {
-      setSearchInput(value); // Update raw input (will be debounced)
+      setSearchInput(value);
     } else {
-      setPage(1); // Reset page for other filters
+      setPage(1);
       if (key === "category") setCategory(value);
       if (key === "minPrice") setMinPrice(value);
       if (key === "maxPrice") setMaxPrice(value);
@@ -81,7 +74,6 @@ const Products = () => {
     }
   };
 
-  // Reset all filters
   const handleReset = () => {
     setSearchInput("");
     setSearch("");
@@ -92,117 +84,145 @@ const Products = () => {
     setPage(1);
   };
 
+  const hasActiveFilters = category !== "All" || minPrice || maxPrice || search;
+
+  // Sidebar content — shared between desktop and mobile
+  const FilterContent = () => (
+    <div className="space-y-6">
+      {/* Search */}
+      <div>
+        <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider block mb-2">
+          Search
+        </label>
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+          <input
+            type="text"
+            value={searchInput}
+            onChange={(e) => handleFilter("search", e.target.value)}
+            placeholder="Search products..."
+            className="input-field pl-9"
+          />
+        </div>
+      </div>
+
+      {/* Category */}
+      <div>
+        <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider block mb-2">
+          Category
+        </label>
+        <div className="space-y-0.5">
+          {CATEGORIES.map((cat) => (
+            <button
+              key={cat}
+              onClick={() => handleFilter("category", cat)}
+              className={`w-full text-left text-sm px-3 py-2 rounded-lg transition-colors
+                ${category === cat
+                  ? "bg-brand text-white font-medium"
+                  : "text-gray-600 hover:bg-gray-100"}`}
+            >
+              {cat}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Price */}
+      <div>
+        <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider block mb-2">
+          Price Range (₹)
+        </label>
+        <div className="flex gap-2">
+          <input
+            type="number"
+            value={minPrice}
+            onChange={(e) => handleFilter("minPrice", e.target.value)}
+            placeholder="Min"
+            className="input-field"
+          />
+          <input
+            type="number"
+            value={maxPrice}
+            onChange={(e) => handleFilter("maxPrice", e.target.value)}
+            placeholder="Max"
+            className="input-field"
+          />
+        </div>
+      </div>
+
+      {/* Reset */}
+      {hasActiveFilters && (
+        <button onClick={handleReset} className="btn-secondary w-full text-sm">
+          Reset Filters
+        </button>
+      )}
+    </div>
+  );
+
   return (
     <div className="max-w-7xl mx-auto px-4 py-8">
-      <div className="flex flex-col md:flex-row gap-6">
 
-        {/* ── Sidebar Filters ────────────────────────────── */}
-        <aside className="w-full md:w-64 flex-shrink-0">
-          <div className="card space-y-6">
-            <h2 className="font-bold text-gray-800 text-lg">Filters</h2>
+      {/* Page header */}
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Products</h1>
+          <p className="text-sm text-gray-500 mt-0.5">
+            {loading ? "Loading..." : `${total} products found`}
+          </p>
+        </div>
+        <div className="flex items-center gap-3">
+          <select
+            value={sort}
+            onChange={(e) => handleFilter("sort", e.target.value)}
+            className="input-field w-44 text-sm hidden sm:block"
+          >
+            <option value="newest">Newest First</option>
+            <option value="price_asc">Price: Low to High</option>
+            <option value="price_desc">Price: High to Low</option>
+          </select>
+          <button
+            onClick={() => setShowMobileFilters(true)}
+            className="md:hidden btn-secondary py-2 px-3"
+          >
+            <SlidersHorizontal className="w-4 h-4" />
+            <span className="text-sm">Filters</span>
+          </button>
+        </div>
+      </div>
 
-            {/* Search with Debounce */}
-            <div>
-              <label className="text-sm font-medium text-gray-600 block mb-2">Search</label>
-              <input
-                type="text"
-                value={searchInput}
-                onChange={(e) => handleFilter("search", e.target.value)}
-                placeholder="Search products..."
-                className="input-field"
-              />
-              <p className="text-xs text-gray-400 mt-1">Takes effect after you stop typing</p>
-            </div>
+      <div className="flex gap-6">
 
-            {/* Category */}
-            <div>
-              <label className="text-sm font-medium text-gray-600 block mb-2">Category</label>
-              <div className="space-y-1">
-                {CATEGORIES.map((cat) => (
-                  <button
-                    key={cat}
-                    onClick={() => handleFilter("category", cat)}
-                    className={`w-full text-left text-sm px-3 py-2 rounded-lg transition-colors
-                      ${category === cat
-                        ? "bg-brand text-white font-medium"
-                        : "text-gray-600 hover:bg-gray-100"}`}
-                  >
-                    {cat}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Price Range */}
-            <div>
-              <label className="text-sm font-medium text-gray-600 block mb-2">Price Range (₹)</label>
-              <div className="flex gap-2">
-                <input
-                  type="number"
-                  value={minPrice}
-                  onChange={(e) => handleFilter("minPrice", e.target.value)}
-                  placeholder="Min"
-                  className="input-field"
-                />
-                <input
-                  type="number"
-                  value={maxPrice}
-                  onChange={(e) => handleFilter("maxPrice", e.target.value)}
-                  placeholder="Max"
-                  className="input-field"
-                />
-              </div>
-            </div>
-
-            {/* Reset */}
-            <button
-              onClick={handleReset}
-              className="w-full btn-secondary text-sm"
-            >
-              Reset Filters
-            </button>
+        {/* Desktop sidebar */}
+        <aside className="hidden md:block w-60 shrink-0">
+          <div className="card sticky top-24">
+            <h2 className="font-semibold text-gray-900 text-sm mb-4">Filters</h2>
+            <FilterContent />
           </div>
         </aside>
 
-        {/* ── Main Product Grid ───────────────────────────── */}
-        <main className="flex-1">
+        {/* Product grid */}
+        <main className="flex-1 min-w-0">
 
-          {/* Sort Bar */}
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-6">
-            <p className="text-sm text-gray-600">
-              <span className="font-medium text-gray-800">{total}</span> products found
-            </p>
-            <select
-              value={sort}
-              onChange={(e) => handleFilter("sort", e.target.value)}
-              className="input-field w-full sm:w-48 text-sm"
-            >
-              <option value="newest">Newest First</option>
-              <option value="price_asc">Price: Low to High</option>
-              <option value="price_desc">Price: High to Low</option>
-            </select>
-          </div>
-
-          {/* Loading State */}
           {loading ? (
             <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
               {[...Array(6)].map((_, i) => (
-                <div key={i} className="card animate-pulse">
-                  <div className="aspect-square bg-gray-200 rounded-lg mb-3" />
-                  <div className="h-3 bg-gray-200 rounded mb-2" />
-                  <div className="h-3 bg-gray-200 rounded w-2/3" />
+                <div key={i} className="card animate-pulse p-0">
+                  <div className="aspect-square bg-gray-100 rounded-t-xl" />
+                  <div className="p-4 space-y-2">
+                    <div className="h-3 bg-gray-100 rounded w-1/3" />
+                    <div className="h-4 bg-gray-100 rounded" />
+                    <div className="h-4 bg-gray-100 rounded w-2/3" />
+                  </div>
                 </div>
               ))}
             </div>
           ) : products.length === 0 ? (
-            // No Products State
-            <div className="text-center py-20 text-gray-400">
-              <p className="text-6xl mb-4">🔍</p>
-              <p className="text-lg font-semibold text-gray-600">No products found</p>
-              <p className="text-sm">Try adjusting your search or filters</p>
+            <div className="text-center py-20">
+              <Search className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+              <p className="text-lg font-semibold text-gray-700">No products found</p>
+              <p className="text-sm text-gray-400 mt-1">Try adjusting your search or filters</p>
             </div>
           ) : (
-            // Product Grid
             <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
               {products.map((p) => <ProductCard key={p._id} product={p} />)}
             </div>
@@ -210,38 +230,57 @@ const Products = () => {
 
           {/* Pagination */}
           {totalPages > 1 && (
-            <div className="flex justify-center items-center gap-2 mt-8 flex-wrap">
+            <div className="flex justify-center items-center gap-1 mt-8">
               <button
                 onClick={() => setPage(p => p - 1)}
                 disabled={page === 1}
-                className="btn-secondary px-4 py-2 text-sm disabled:opacity-40"
+                className="btn-ghost p-2 disabled:opacity-30"
               >
-                ← Prev
+                <ChevronLeft className="w-4 h-4" />
               </button>
-              
-              {/* Page numbers */}
+
               {[...Array(totalPages)].map((_, i) => (
                 <button
                   key={i}
                   onClick={() => setPage(i + 1)}
-                  className={`px-3 py-2 text-sm rounded-lg font-medium transition-colors
-                    ${page === i + 1 ? "bg-brand text-white" : "text-gray-600 hover:bg-gray-100"}`}
+                  className={`w-9 h-9 rounded-lg text-sm font-medium transition-colors
+                    ${page === i + 1
+                      ? "bg-brand text-white"
+                      : "text-gray-600 hover:bg-gray-100"}`}
                 >
                   {i + 1}
                 </button>
               ))}
-              
+
               <button
                 onClick={() => setPage(p => p + 1)}
                 disabled={page === totalPages}
-                className="btn-secondary px-4 py-2 text-sm disabled:opacity-40"
+                className="btn-ghost p-2 disabled:opacity-30"
               >
-                Next →
+                <ChevronRight className="w-4 h-4" />
               </button>
             </div>
           )}
         </main>
       </div>
+
+      {/* Mobile filter overlay */}
+      {showMobileFilters && (
+        <div className="fixed inset-0 z-50 md:hidden">
+          <div className="absolute inset-0 bg-black/30" onClick={() => setShowMobileFilters(false)} />
+          <div className="absolute right-0 top-0 bottom-0 w-80 max-w-full bg-white shadow-xl animate-fade-in overflow-y-auto">
+            <div className="flex items-center justify-between px-4 py-4 border-b border-gray-100">
+              <h2 className="font-semibold text-gray-900">Filters</h2>
+              <button onClick={() => setShowMobileFilters(false)} className="p-1.5 text-gray-500 hover:text-gray-700">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-4">
+              <FilterContent />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

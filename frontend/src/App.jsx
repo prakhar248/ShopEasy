@@ -1,5 +1,5 @@
 // ============================================================
-//  App.jsx  —  FINAL CLEAN VERSION
+//  App.jsx  —  UPDATED with OTP verification routes
 // ============================================================
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import { ToastContainer } from "react-toastify";
@@ -27,6 +27,9 @@ import CreateProductPage from "./pages/CreateProductPage";
 import SellerStore from "./pages/SellerStore";
 import PaymentSuccess from "./pages/PaymentSuccess";
 import PaymentFailed from "./pages/PaymentFailed";
+import VerifyOtp from "./pages/VerifyOtp";
+import ForgotPassword from "./pages/ForgotPassword";
+import ResetPassword from "./pages/ResetPassword";
 
 function App() {
   return (
@@ -47,6 +50,11 @@ function App() {
             <Route path="/signup" element={<Auth mode="signup" />} />
             <Route path="/payment-success" element={<PaymentSuccess />} />
             <Route path="/payment-failed" element={<PaymentFailed />} />
+
+            {/* ───────── OTP & PASSWORD RESET ───────── */}
+            <Route path="/verify-otp" element={<VerifyOtp />} />
+            <Route path="/forgot-password" element={<ForgotPassword />} />
+            <Route path="/reset-password" element={<ResetPassword />} />
 
             {/* ───────── CUSTOMER ───────── */}
             <Route path="/cart" element={<ProtectedRoute><Cart /></ProtectedRoute>} />
@@ -88,10 +96,10 @@ function App() {
             <Route
               path="*"
               element={
-                <div className="flex flex-col items-center justify-center min-h-screen text-center px-4">
-                  <p className="text-8xl mb-4">🤔</p>
-                  <h1 className="text-4xl font-bold text-gray-700 mb-2">404</h1>
-                  <p className="text-gray-400 mb-6">This page does not exist.</p>
+                <div className="flex flex-col items-center justify-center min-h-[70vh] text-center px-4">
+                  <h1 className="text-6xl font-bold text-gray-200 mb-2">404</h1>
+                  <p className="text-lg font-semibold text-gray-700 mb-1">Page not found</p>
+                  <p className="text-gray-400 text-sm mb-6">The page you're looking for doesn't exist.</p>
                   <a href="/" className="btn-primary">Go Home</a>
                 </div>
               }

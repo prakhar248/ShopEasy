@@ -1,13 +1,11 @@
 // ============================================================
-//  src/pages/PaymentSuccess.jsx
-//  Dedicated success page shown after PayU payment completes.
-//  Also syncs cart state (since PayU redirect clears frontend).
+//  src/pages/PaymentSuccess.jsx — Clean success state
 // ============================================================
-
 import { useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { useCart } from "../context/CartContext";
 import api from "../api/axios";
+import { CheckCircle, Package, ArrowRight, CreditCard } from "lucide-react";
 
 const PaymentSuccess = () => {
   const [searchParams] = useSearchParams();
@@ -16,18 +14,11 @@ const PaymentSuccess = () => {
   const [order, setOrder] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // Sync cart on mount — backend already cleared it, this updates frontend state
-  useEffect(() => {
-    syncCart();
-  }, []);
+  useEffect(() => { syncCart(); }, []);
 
-  // Fetch order details if orderId is present
   useEffect(() => {
     const fetchOrder = async () => {
-      if (!orderId) {
-        setLoading(false);
-        return;
-      }
+      if (!orderId) { setLoading(false); return; }
       try {
         const token = localStorage.getItem("token");
         if (token) {
@@ -44,55 +35,39 @@ const PaymentSuccess = () => {
   }, [orderId]);
 
   return (
-    <div className="min-h-screen flex items-center justify-center px-4 py-16">
-      <div className="max-w-md w-full text-center">
-        {/* Animated Checkmark */}
-        <div className="inline-flex items-center justify-center w-24 h-24 rounded-full bg-green-100 mb-6 animate-bounce">
-          <svg
-            className="w-12 h-12 text-green-600"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-            strokeWidth={2.5}
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              d="M5 13l4 4L19 7"
-            />
-          </svg>
+    <div className="min-h-[80vh] flex items-center justify-center px-4 py-16">
+      <div className="max-w-md w-full text-center animate-fade-in">
+
+        {/* Icon */}
+        <div className="w-20 h-20 rounded-full bg-accent-light mx-auto mb-6 flex items-center justify-center">
+          <CheckCircle className="w-10 h-10 text-accent" />
         </div>
 
-        <h1 className="text-3xl font-bold text-gray-800 mb-2">
-          Payment Successful! 🎉
-        </h1>
-        <p className="text-gray-500 mb-6">
+        <h1 className="text-2xl font-bold text-gray-900 mb-2">Payment Successful!</h1>
+        <p className="text-gray-500 text-sm mb-8">
           Your order has been confirmed and is being processed.
         </p>
 
-        {/* Order Details Card */}
+        {/* Order Details */}
         {!loading && order && (
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-6 text-left">
-            <h3 className="font-semibold text-gray-800 mb-3">
-              Order Summary
-            </h3>
-            <div className="space-y-2 text-sm">
+          <div className="card text-left mb-6">
+            <h3 className="font-semibold text-gray-900 text-sm mb-3">Order Summary</h3>
+            <div className="space-y-2.5 text-sm">
               <div className="flex justify-between text-gray-600">
                 <span>Order ID</span>
-                <span className="font-mono text-xs text-gray-700">
-                  {order._id}
-                </span>
+                <span className="font-mono text-xs text-gray-800">{order._id}</span>
               </div>
               <div className="flex justify-between text-gray-600">
                 <span>Amount Paid</span>
-                <span className="font-semibold text-green-700">
+                <span className="font-semibold text-accent-dark">
                   ₹{order.totalPrice?.toLocaleString()}
                 </span>
               </div>
               <div className="flex justify-between text-gray-600">
                 <span>Payment Method</span>
-                <span className="capitalize font-medium">
-                  {order.paymentMethod === "payu" ? "🏦 PayU" : "💳 Razorpay"}
+                <span className="capitalize font-medium inline-flex items-center gap-1.5">
+                  <CreditCard className="w-3.5 h-3.5" />
+                  {order.paymentMethod === "payu" ? "PayU" : "Razorpay"}
                 </span>
               </div>
               <div className="flex justify-between text-gray-600">
@@ -104,33 +79,24 @@ const PaymentSuccess = () => {
         )}
 
         {!loading && !order && orderId && (
-          <div className="bg-green-50 rounded-xl border border-green-200 p-4 mb-6">
-            <p className="text-sm text-green-800">
-              <strong>Order ID:</strong>{" "}
-              <code className="bg-green-100 px-2 py-0.5 rounded text-xs">
-                {orderId}
-              </code>
+          <div className="card mb-6 text-left">
+            <p className="text-sm text-gray-700">
+              <span className="text-gray-500">Order ID:</span>{" "}
+              <code className="bg-gray-100 px-2 py-0.5 rounded text-xs font-mono">{orderId}</code>
             </p>
           </div>
         )}
 
         {/* Actions */}
         <div className="flex flex-col sm:flex-row gap-3 justify-center">
-          <Link
-            to="/orders"
-            className="bg-brand text-white font-semibold px-6 py-3 rounded-lg hover:bg-brand-dark transition"
-          >
-            View My Orders
+          <Link to="/orders" className="btn-primary">
+            <Package className="w-4 h-4" /> View My Orders
           </Link>
-          <Link
-            to="/products"
-            className="bg-gray-100 text-gray-700 font-semibold px-6 py-3 rounded-lg hover:bg-gray-200 transition"
-          >
-            Continue Shopping
+          <Link to="/products" className="btn-secondary">
+            Continue Shopping <ArrowRight className="w-4 h-4" />
           </Link>
         </div>
 
-        {/* Email Notification */}
         <p className="text-xs text-gray-400 mt-8">
           A confirmation email has been sent to your registered email address.
         </p>

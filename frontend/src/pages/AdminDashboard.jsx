@@ -305,8 +305,8 @@ const AdminDashboard = () => {
                     </span>
                   </td>
                   <td className="px-4 py-3">
-                    <span className={u.isEmailVerified ? "text-green-600" : "text-red-400"}>
-                      {u.isEmailVerified ? "✓" : "✗"}
+                    <span className={u.isVerified ? "text-green-600" : "text-red-400"}>
+                      {u.isVerified ? "✓" : "✗"}
                     </span>
                   </td>
                   <td className="px-4 py-3 text-gray-400 text-xs">

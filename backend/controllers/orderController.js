@@ -5,6 +5,7 @@ const Order   = require("../models/Order");
 const Cart    = require("../models/Cart");
 const Product = require("../models/Product");
 const sendEmail = require("../utils/sendEmail");
+const emailTemplate = require("../utils/emailTemplate");
 
 exports.placeOrder = async (req, res, next) => {
   try {
@@ -82,15 +83,32 @@ exports.placeOrder = async (req, res, next) => {
     try {
       await sendEmail(
         req.user.email,
-        "Order Confirmation - ShopperStop",
-        `<p>Hi ${req.user.name},</p>
-         <p>Your order has been placed successfully!</p>
-         <p><strong>Order ID:</strong> ${order._id}</p>
-         <p><strong>Total Amount:</strong> ₹${order.totalPrice}</p>
-         <p><strong>Status:</strong> Awaiting Payment</p>
-         <p>Please proceed to payment to confirm your order.</p>
-         <br/>
-         <p>Thank you for shopping with ShopperStop!</p>`
+        "Order Confirmation — ShopperStop",
+        emailTemplate({
+          title: "Order Placed",
+          greeting: `Hi ${req.user.name},`,
+          body: `
+            <p>Your order has been placed successfully!</p>
+            <table style="width:100%; border-collapse:collapse; margin:16px 0;">
+              <tr>
+                <td style="padding:8px 0; color:#64748b; font-size:13px;">Order ID</td>
+                <td style="padding:8px 0; text-align:right; font-weight:600; color:#1e293b; font-size:13px; font-family:monospace;">${order._id}</td>
+              </tr>
+              <tr>
+                <td style="padding:8px 0; color:#64748b; font-size:13px;">Total Amount</td>
+                <td style="padding:8px 0; text-align:right; font-weight:600; color:#1e293b; font-size:13px;">₹${order.totalPrice.toLocaleString()}</td>
+              </tr>
+              <tr>
+                <td style="padding:8px 0; color:#64748b; font-size:13px;">Status</td>
+                <td style="padding:8px 0; text-align:right; font-size:13px;"><span style="background:#fef3c7; color:#92400e; padding:2px 8px; border-radius:4px; font-weight:500;">Awaiting Payment</span></td>
+              </tr>
+            </table>
+            <p>Please proceed to payment to confirm your order.</p>
+          `,
+          ctaText: "Complete Payment",
+          ctaUrl: `${process.env.FRONTEND_URL || "http://localhost:5173"}/orders`,
+          footer: "Thank you for shopping with ShopperStop!",
+        })
       );
       console.log("✅ Order confirmation email sent to:", req.user.email);
     } catch (emailError) {
@@ -157,15 +175,24 @@ exports.updateOrderStatus = async (req, res, next) => {
       try {
         await sendEmail(
           order.user.email,
-          "Your Order Has Been Shipped! 📦",
-          `<p>Hi ${order.user.name},</p>
-           <p>Great news! Your order has been shipped.</p>
-           <p><strong>Order ID:</strong> ${order._id}</p>
-           <p>Your package is on its way and should arrive soon.</p>
-           <p>You can track your order status anytime in your account dashboard.</p>
-           <br/>
-           <p>Thank you for your patience!</p>
-           <p>ShopperStop Team</p>`
+          "Your Order Has Been Shipped! — ShopperStop",
+          emailTemplate({
+            title: "Order Shipped",
+            greeting: `Hi ${order.user.name},`,
+            body: `
+              <p>Great news! Your order has been shipped and is on its way to you.</p>
+              <table style="width:100%; border-collapse:collapse; margin:16px 0;">
+                <tr>
+                  <td style="padding:8px 0; color:#64748b; font-size:13px;">Order ID</td>
+                  <td style="padding:8px 0; text-align:right; font-weight:600; color:#1e293b; font-size:13px; font-family:monospace;">${order._id}</td>
+                </tr>
+              </table>
+              <p>You can track your order status anytime in your account dashboard.</p>
+            `,
+            ctaText: "Track My Order",
+            ctaUrl: `${process.env.FRONTEND_URL || "http://localhost:5173"}/orders`,
+            footer: "Thank you for your patience! — The ShopperStop Team",
+          })
         );
         console.log("✅ Shipped email sent to:", order.user.email);
       } catch (emailError) {
@@ -178,14 +205,25 @@ exports.updateOrderStatus = async (req, res, next) => {
       try {
         await sendEmail(
           order.user.email,
-          "Your Order Has Been Delivered! 🎉",
-          `<p>Hi ${order.user.name},</p>
-           <p>Your order has been delivered!</p>
-           <p><strong>Order ID:</strong> ${order._id}</p>
-           <p>We hope you enjoy your purchase. Your satisfaction is important to us.</p>
-           <p>Please share your feedback in the product reviews - your reviews help other customers!</p>
-           <br/>
-           <p>Thank you for shopping with ShopperStop!</p>`
+          "Your Order Has Been Delivered! — ShopperStop",
+          emailTemplate({
+            title: "Order Delivered",
+            greeting: `Hi ${order.user.name},`,
+            body: `
+              <p>Your order has been delivered!</p>
+              <table style="width:100%; border-collapse:collapse; margin:16px 0;">
+                <tr>
+                  <td style="padding:8px 0; color:#64748b; font-size:13px;">Order ID</td>
+                  <td style="padding:8px 0; text-align:right; font-weight:600; color:#1e293b; font-size:13px; font-family:monospace;">${order._id}</td>
+                </tr>
+              </table>
+              <p>We hope you enjoy your purchase! Your satisfaction is important to us.</p>
+              <p>Please share your feedback in the product reviews — your reviews help other customers!</p>
+            `,
+            ctaText: "Write a Review",
+            ctaUrl: `${process.env.FRONTEND_URL || "http://localhost:5173"}/orders`,
+            footer: "Thank you for shopping with ShopperStop!",
+          })
         );
         console.log("✅ Delivered email sent to:", order.user.email);
       } catch (emailError) {

@@ -14,6 +14,7 @@ const Product = require("../models/Product");
 const Order   = require("../models/Order");
 const { cloudinary } = require("../config/cloudinary");
 const sendEmail = require("../utils/sendEmail");
+const emailTemplate = require("../utils/emailTemplate");
 
 // ============================================================
 //  @desc    Get platform-wide stats for admin dashboard
@@ -108,7 +109,7 @@ exports.getPendingSellers = async (req, res, next) => {
 exports.getAllSellers = async (req, res, next) => {
   try {
     const sellers = await Seller.find({})
-      .populate("user", "name email createdAt isEmailVerified")
+      .populate("user", "name email createdAt isVerified")
       .populate("approvedBy", "name")
       .sort("-createdAt");
 
@@ -142,25 +143,34 @@ exports.approveSeller = async (req, res, next) => {
 
     // Send seller approval email
     try {
-      await sendEmail(
-        seller.user.email,
-        "🎉 Your Store Has Been Approved - ShopperStop",
-        `<p>Hi ${seller.user.name},</p>
-         <p>Congratulations! Your seller account has been approved!</p>
-         <p><strong>Store Name:</strong> ${seller.storeName}</p>
-         <p>Your store is now active and you can start listing products.</p>
-         <br/>
-         <p><strong>Next Steps:</strong></p>
-         <ul>
-           <li>Log in to your seller dashboard</li>
-           <li>Add your products with descriptions and images</li>
-           <li>Set your pricing and manage inventory</li>
-           <li>Monitor orders and customer reviews</li>
-         </ul>
-         <br/>
-         <p>Best of luck with your store! We're excited to have you as part of ShopperStop.</p>
-         <p>If you have any questions, feel free to contact our support team.</p>`
-      );
+      await sendEmail({
+        to: seller.user.email,
+        subject: "Your Store Has Been Approved! — ShopperStop",
+        html: emailTemplate({
+          title: "Store Approved!",
+          greeting: `Hi ${seller.user.name},`,
+          body: `
+            <p>Congratulations! Your seller account has been <strong style="color:#059669;">approved</strong>!</p>
+            <table style="width:100%; border-collapse:collapse; margin:16px 0;">
+              <tr>
+                <td style="padding:8px 0; color:#64748b; font-size:13px;">Store Name</td>
+                <td style="padding:8px 0; text-align:right; font-weight:600; color:#1e293b; font-size:13px;">${seller.storeName}</td>
+              </tr>
+            </table>
+            <p><strong>Next Steps:</strong></p>
+            <ul style="padding-left:20px; color:#475569; font-size:14px; line-height:1.8;">
+              <li>Log in to your seller dashboard</li>
+              <li>Add your products with descriptions and images</li>
+              <li>Set your pricing and manage inventory</li>
+              <li>Monitor orders and customer reviews</li>
+            </ul>
+            <p>Best of luck with your store! We're excited to have you as part of ShopperStop.</p>
+          `,
+          ctaText: "Go to Seller Dashboard",
+          ctaUrl: `${process.env.FRONTEND_URL || "http://localhost:5173"}/seller`,
+          footer: "If you have any questions, feel free to contact our support team.",
+        }),
+      });
       console.log("✅ Seller approval email sent to:", seller.user.email);
     } catch (emailError) {
       console.error("Failed to send seller approval email:", emailError);

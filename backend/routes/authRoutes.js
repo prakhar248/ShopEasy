@@ -1,5 +1,6 @@
 // ============================================================
 //  routes/authRoutes.js  —  Mounted at /api/auth
+//  Updated for OTP-based verification and password reset
 // ============================================================
 const express = require("express");
 const router  = express.Router();
@@ -7,7 +8,8 @@ const router  = express.Router();
 const {
   signup,
   login,
-  verifyEmail,
+  verifyOtp,
+  resendOtp,
   forgotPassword,
   resetPassword,
   getMe,
@@ -17,14 +19,19 @@ const {
 
 const { protect } = require("../middleware/authMiddleware");
 
-// Public
-router.post("/signup",              signup);
-router.post("/login",               login);
-router.get ("/verify-email/:token", verifyEmail);
-router.post("/forgot-password",     forgotPassword);
-router.put ("/reset-password/:token", resetPassword);
+// Public — Authentication
+router.post("/signup",           signup);
+router.post("/login",            login);
 
-// Private
+// Public — OTP Verification
+router.post("/verify-otp",      verifyOtp);
+router.post("/resend-otp",      resendOtp);
+
+// Public — Password Reset
+router.post("/forgot-password",  forgotPassword);
+router.post("/reset-password",   resetPassword);
+
+// Private — Profile
 router.get ("/me",              protect, getMe);
 router.put ("/profile",         protect, updateProfile);
 router.put ("/change-password", protect, changePassword);

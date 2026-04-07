@@ -1,34 +1,75 @@
-/* index.css — Tailwind CSS directives + global overrides */
+/* ── index.css — Design System ─────────────────────────────── */
 
-/* These three @tailwind lines inject Tailwind's styles */
+/* Google Fonts: Inter */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* Global base styles */
-body {
-  @apply bg-gray-50 text-gray-800 font-sans;
+/* ── Base Styles ──────────────────────────────────────────── */
+html {
+  scroll-behavior: smooth;
 }
 
-/* Reusable component classes using @apply */
+body {
+  @apply bg-gray-50 text-gray-800 font-sans antialiased;
+}
+
+::selection {
+  @apply bg-brand/20 text-brand-dark;
+}
+
+/* ── Component Classes ────────────────────────────────────── */
 @layer components {
+  /* Buttons */
   .btn-primary {
-    @apply bg-brand text-white px-6 py-2 rounded-lg font-medium
-           hover:bg-brand-dark transition-colors duration-200
-           disabled:opacity-50 disabled:cursor-not-allowed;
+    @apply inline-flex items-center justify-center gap-2
+           bg-brand text-white px-5 py-2.5 rounded-lg
+           text-sm font-semibold
+           hover:bg-brand-dark
+           active:scale-[0.98]
+           transition-all duration-150
+           disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100;
   }
 
   .btn-secondary {
-    @apply border border-brand text-brand px-6 py-2 rounded-lg font-medium
-           hover:bg-brand-light transition-colors duration-200;
+    @apply inline-flex items-center justify-center gap-2
+           border border-gray-300 text-gray-700 px-5 py-2.5 rounded-lg
+           text-sm font-semibold bg-white
+           hover:bg-gray-50 hover:border-gray-400
+           active:scale-[0.98]
+           transition-all duration-150;
   }
 
+  .btn-ghost {
+    @apply inline-flex items-center justify-center gap-2
+           text-gray-600 px-3 py-2 rounded-lg
+           text-sm font-medium
+           hover:bg-gray-100
+           active:scale-[0.98]
+           transition-all duration-150;
+  }
+
+  /* Inputs */
   .input-field {
-    @apply w-full border border-gray-300 rounded-lg px-4 py-2 text-sm
-           focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent;
+    @apply w-full border border-gray-300 rounded-lg px-3.5 py-2.5
+           text-sm text-gray-800 bg-white placeholder-gray-400
+           outline-none
+           focus:border-brand focus:ring-2 focus:ring-brand/10
+           transition-colors duration-150;
   }
 
+  /* Cards */
   .card {
-    @apply bg-white rounded-xl shadow-sm border border-gray-100 p-4;
+    @apply bg-white rounded-xl border border-gray-200 p-5
+           shadow-sm;
+  }
+
+  .card-hover {
+    @apply bg-white rounded-xl border border-gray-200 p-5
+           shadow-sm
+           hover:shadow-md hover:border-gray-300
+           transition-all duration-200;
   }
 }

@@ -25,15 +25,15 @@ const PAYMENT_COLORS = {
 };
 
 const PAYMENT_METHOD_BADGE = {
-  razorpay: { label: "Razorpay", icon: "💳", color: "bg-blue-50 text-blue-700 border-blue-200" },
-  payu:     { label: "PayU",     icon: "🏦", color: "bg-green-50 text-green-700 border-green-200" },
+  razorpay: { label: "Razorpay", icon: "R", color: "bg-blue-50 text-blue-700 border-blue-200" },
+  payu:     { label: "PayU",     icon: "P", color: "bg-green-50 text-green-700 border-green-200" },
 };
 
 const TRACKING_STEPS = [
-  { key: "processing",       label: "Processing",       icon: "📋" },
-  { key: "shipped",          label: "Shipped",           icon: "📦" },
-  { key: "out_for_delivery", label: "Out for Delivery",  icon: "🚚" },
-  { key: "delivered",        label: "Delivered",          icon: "✅" },
+  { key: "processing",       label: "Processing",       icon: "1" },
+  { key: "shipped",          label: "Shipped",           icon: "2" },
+  { key: "out_for_delivery", label: "Out for Delivery",  icon: "3" },
+  { key: "delivered",        label: "Delivered",          icon: "4" },
 ];
 
 const FILTER_OPTIONS = [

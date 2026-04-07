@@ -24,6 +24,7 @@ const Order    = require("../models/Order");
 const Product  = require("../models/Product");
 const Cart     = require("../models/Cart");
 const sendEmail = require("../utils/sendEmail");
+const emailTemplate = require("../utils/emailTemplate");
 const { createPayUPaymentObject, verifyPayUHash } = require("../utils/payuUtils");
 
 // Initialize Razorpay with test keys from .env
@@ -153,17 +154,32 @@ exports.verifyPayment = async (req, res, next) => {
     try {
       await sendEmail(
         order.user.email,
-        "Payment Successful - Order Confirmed! ✅",
-        `<p>Hi ${order.user.name},</p>
-         <p>Your payment has been received and confirmed!</p>
-         <p><strong>Order ID:</strong> ${order._id}</p>
-         <p><strong>Amount Paid:</strong> ₹${order.totalPrice}</p>
-         <p><strong>Payment ID:</strong> ${razorpay_payment_id}</p>
-         <br/>
-         <p>Your order is now confirmed and will be processed by our team.</p>
-         <p>You will receive a shipping notification once your items are dispatched.</p>
-         <br/>
-         <p>Thank you for shopping with ShopperStop!</p>`
+        "Payment Successful — Order Confirmed! — ShopperStop",
+        emailTemplate({
+          title: "Payment Confirmed",
+          greeting: `Hi ${order.user.name},`,
+          body: `
+            <p>Your payment has been received and your order is confirmed!</p>
+            <table style="width:100%; border-collapse:collapse; margin:16px 0;">
+              <tr>
+                <td style="padding:8px 0; color:#64748b; font-size:13px;">Order ID</td>
+                <td style="padding:8px 0; text-align:right; font-weight:600; color:#1e293b; font-size:13px; font-family:monospace;">${order._id}</td>
+              </tr>
+              <tr>
+                <td style="padding:8px 0; color:#64748b; font-size:13px;">Amount Paid</td>
+                <td style="padding:8px 0; text-align:right; font-weight:600; color:#059669; font-size:13px;">₹${order.totalPrice.toLocaleString()}</td>
+              </tr>
+              <tr>
+                <td style="padding:8px 0; color:#64748b; font-size:13px;">Payment ID</td>
+                <td style="padding:8px 0; text-align:right; font-size:12px; font-family:monospace; color:#64748b;">${razorpay_payment_id}</td>
+              </tr>
+            </table>
+            <p>Your order will be processed and shipped soon. You’ll receive a shipping notification once dispatched.</p>
+          `,
+          ctaText: "View My Orders",
+          ctaUrl: `${process.env.FRONTEND_URL || "http://localhost:5173"}/orders`,
+          footer: "Thank you for shopping with ShopperStop!",
+        })
       );
       console.log("✅ Payment success email sent to:", order.user.email);
     } catch (emailError) {
@@ -353,17 +369,32 @@ exports.handlePayUSuccess = async (req, res, next) => {
       try {
         await sendEmail(
           order.user.email,
-          "Payment Successful - Order Confirmed! ✅",
-          `<p>Hi ${order.user.name},</p>
-           <p>Your payment has been received and confirmed via PayU!</p>
-           <p><strong>Order ID:</strong> ${order._id}</p>
-           <p><strong>Amount Paid:</strong> ₹${order.totalPrice}</p>
-           <p><strong>Transaction ID:</strong> ${txnid}</p>
-           <br/>
-           <p>Your order is now confirmed and will be processed by our team.</p>
-           <p>You will receive a shipping notification once your items are dispatched.</p>
-           <br/>
-           <p>Thank you for shopping with ShopperStop!</p>`
+          "Payment Successful — Order Confirmed! — ShopperStop",
+          emailTemplate({
+            title: "Payment Confirmed",
+            greeting: `Hi ${order.user.name},`,
+            body: `
+              <p>Your payment via PayU has been received and your order is confirmed!</p>
+              <table style="width:100%; border-collapse:collapse; margin:16px 0;">
+                <tr>
+                  <td style="padding:8px 0; color:#64748b; font-size:13px;">Order ID</td>
+                  <td style="padding:8px 0; text-align:right; font-weight:600; color:#1e293b; font-size:13px; font-family:monospace;">${order._id}</td>
+                </tr>
+                <tr>
+                  <td style="padding:8px 0; color:#64748b; font-size:13px;">Amount Paid</td>
+                  <td style="padding:8px 0; text-align:right; font-weight:600; color:#059669; font-size:13px;">₹${order.totalPrice.toLocaleString()}</td>
+                </tr>
+                <tr>
+                  <td style="padding:8px 0; color:#64748b; font-size:13px;">Transaction ID</td>
+                  <td style="padding:8px 0; text-align:right; font-size:12px; font-family:monospace; color:#64748b;">${txnid}</td>
+                </tr>
+              </table>
+              <p>Your order will be processed and shipped soon. You’ll receive a shipping notification once dispatched.</p>
+            `,
+            ctaText: "View My Orders",
+            ctaUrl: `${process.env.FRONTEND_URL || "http://localhost:5173"}/orders`,
+            footer: "Thank you for shopping with ShopperStop!",
+          })
         );
         console.log("✅ Payment success email sent to:", order.user.email);
       } catch (emailError) {

@@ -1,5 +1,5 @@
 // ============================================================
-//  models/User.js  —  UPDATED for multi-vendor platform
+//  models/User.js  —  UPDATED for OTP-based verification
 //  Roles: "customer" | "seller" | "admin"
 // ============================================================
 
@@ -44,11 +44,14 @@ const userSchema = new mongoose.Schema(
       default: "customer",
     },
 
-    isEmailVerified:       { type: Boolean, default: false },
-    emailVerificationToken: String,
-    emailVerificationExpire: Date,
-    resetPasswordToken:    String,
-    resetPasswordExpire:   Date,
+    // ── Email Verification (OTP-based) ──────────────────────
+    isVerified: { type: Boolean, default: false },
+    otpHash:    { type: String, select: false },
+    otpExpires: { type: Date,   select: false },
+
+    // ── Password Reset (OTP-based) ──────────────────────────
+    resetOtpHash:    { type: String, select: false },
+    resetOtpExpires: { type: Date,   select: false },
 
     avatar: {
       type:    String,
