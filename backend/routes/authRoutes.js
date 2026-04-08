@@ -9,6 +9,7 @@ const {
   signup,
   login,
   verifyOtp,
+  verifySignupOtp,
   resendOtp,
   forgotPassword,
   resetPassword,
@@ -24,9 +25,12 @@ router.post("/signup",           signup);
 router.post("/login",            login);
 
 // Public — OTP Verification
-router.post("/verify-otp",      verifyOtp);
-router.post("/send-otp",        resendOtp);
-router.post("/resend-otp",      resendOtp);
+router.post("/verify-signup",        verifySignupOtp);
+router.post("/verify-existing-user", verifyOtp);
+router.post("/verify-otp",           verifyOtp);
+router.post("/send-otp",             resendOtp);
+router.post("/resend-otp",           resendOtp);
+router.post("/resend-otp-unverified",resendOtp);
 
 // Public — Password Reset
 router.post("/forgot-password",  forgotPassword);

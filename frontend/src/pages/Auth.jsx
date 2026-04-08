@@ -62,15 +62,26 @@ const Auth = ({ mode = "login" }) => {
       const msg = err.response?.data?.message || err.message || "Login failed.";
       setError(msg);
 
-      // If user is unverified, redirect to OTP verification page
-      if (err.response?.status === 403 && err.response?.data?.requiresVerification) {
-        const email = err.response.data.email || form.email.trim();
-        toast.info("Please verify your email first.");
-        navigate(`/verify-otp?email=${encodeURIComponent(email)}`);
+      if (err.response?.status === 403 && err.response?.data?.isEmailVerified === false) {
+        setError("Email not verified");
         return;
       }
 
       toast.error(msg);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleUnverifiedResend = async () => {
+    if (!form.email.trim()) return toast.error("Please enter your email above.");
+    setLoading(true);
+    try {
+      await api.post("/auth/resend-otp", { email: form.email.trim() });
+      toast.success("OTP sent to your email.");
+      navigate(`/verify-otp?email=${encodeURIComponent(form.email.trim())}&isNewSignup=false`);
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Failed to send OTP.");
     } finally {
       setLoading(false);
     }
@@ -90,9 +101,9 @@ const Auth = ({ mode = "login" }) => {
       const { data } = await api.post("/auth/signup", payload);
       toast.success(data.message);
 
-      // Redirect to OTP verification page with email
+      // Redirect to OTP verification page with email & explicitly pass isNewSignup tag
       const email = data.email || form.email.trim();
-      navigate(`/verify-otp?email=${encodeURIComponent(email)}`);
+      navigate(`/verify-otp?email=${encodeURIComponent(email)}&isNewSignup=true`);
     } catch (err) {
       toast.error(err.response?.data?.message || "Signup failed");
     } finally {
@@ -131,8 +142,19 @@ const Auth = ({ mode = "login" }) => {
           {tab === "login" && (
             <form onSubmit={handleLogin} className="space-y-4" noValidate>
               {error && (
-                <div className="flex items-center gap-2 rounded-lg bg-red-50 border border-red-200 px-3 py-2 text-sm text-red-700">
-                  <AlertCircle className="w-4 h-4 shrink-0" /> {error}
+                <div className="flex flex-col gap-2 rounded-lg bg-red-50 border border-red-200 px-3 py-2 text-sm text-red-700">
+                  <div className="flex items-center gap-2">
+                    <AlertCircle className="w-4 h-4 shrink-0" /> {error}
+                  </div>
+                  {error.includes("Email not verified") && (
+                    <button
+                      type="button"
+                      onClick={handleUnverifiedResend}
+                      className="bg-brand text-white py-1.5 px-3 rounded-md text-xs font-semibold hover:bg-brand-dark transition-colors self-start mt-1"
+                    >
+                      Verify Email
+                    </button>
+                  )}
                 </div>
               )}
               <div>

@@ -3,8 +3,10 @@
 //  Uses Nodemailer for email, SHA-256 hashed OTPs with expiry.
 // ============================================================
 
-const User   = require("../models/User");
-const Seller = require("../models/Seller");
+const User     = require("../models/User");
+const TempUser = require("../models/TempUser");
+const Seller   = require("../models/Seller");
+const bcrypt   = require("bcryptjs");
 const sendEmail      = require("../utils/sendEmail");
 const emailTemplate  = require("../utils/emailTemplate");
 const { generateOTP, hashOTP, verifyOTP } = require("../utils/otpUtils");
@@ -46,40 +48,40 @@ exports.signup = async (req, res, next) => {
       });
     }
 
-    // 3. Check for existing email
+    // 3. Check for existing email in MAIN User table
     const existing = await User.findOne({ email });
     if (existing) {
       return res.status(400).json({ success: false, message: "Email is already registered." });
     }
 
-    // 4. Create the User document
-    const user = await User.create({ name, email, password, role });
+    // 4. Check for existing TempUser
+    await TempUser.findOneAndDelete({ email }); // Clear any stale temp records
 
-    // 5. If seller: create a Seller profile (starts as unapproved)
-    if (role === "seller") {
-      await Seller.create({
-        user:             user._id,
-        storeName:        storeName.trim(),
-        storeDescription: storeDescription?.trim() || "",
-        isApproved:       false,
-      });
-    }
-
-    // 6. Generate OTP, hash it, store with expiry
+    // 5. Generate OTP, hash it, store with expiry
     const otp = generateOTP();
-    user.otpHash    = hashOTP(otp);
-    user.otpExpires = new Date(Date.now() + OTP_EXPIRY_MS);
-    await user.save();
+    const otpHash = hashOTP(otp);
+    const otpExpires = new Date(Date.now() + OTP_EXPIRY_MS);
+    
+    // Hash password for TempUser
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(password, salt);
+
+    // 6. Create TempUser
+    const tempUser = await TempUser.create({
+      name, email, password: hashedPassword, role, 
+      storeName: storeName?.trim(), storeDescription: storeDescription?.trim() || "",
+      otpHash, otpExpires
+    });
 
     // Dev console fallback
     if (process.env.NODE_ENV === "development") {
-      console.log(`📩 OTP for ${user.email}: ${otp}`);
+      console.log(`📩 OTP for ${tempUser.email}: ${otp}`);
     }
 
     // 7. Send verification OTP email
     const html = emailTemplate({
       title: "Verify Your Account",
-      greeting: `Hi ${user.name},`,
+      greeting: `Hi ${tempUser.name},`,
       body: `
         <p>Welcome to <strong>ShopEasy</strong>! We're excited to have you on board.</p>
         <p>Please use the verification code below to activate your account:</p>
@@ -88,31 +90,97 @@ exports.signup = async (req, res, next) => {
       footer: "If you didn't create an account on ShopEasy, you can safely ignore this email.",
     });
 
-    console.log("Sending OTP to:", user.email);
+    console.log("Sending OTP to:", tempUser.email);
     try {
       await sendEmail({
-        to: user.email,
+        to: tempUser.email,
         subject: "Verify your email - ShopEasy",
         html,
       });
       console.log("Email sent successfully");
     } catch (error) {
-      console.error("Email sending failed:", error);
-      // Clean up the user since email failed so they can retry signup
-      await User.findByIdAndDelete(user._id);
-      if (role === "seller") {
-        await Seller.findOneAndDelete({ user: user._id });
-      }
+      console.error("EMAIL ERROR:", error);
+      // Clean up temp since email failed
+      await TempUser.findByIdAndDelete(tempUser._id);
       return res.status(500).json({
         success: false,
         message: "Failed to send OTP email",
+        error: error.message
       });
     }
 
+    // DO NOT return JWT token yet
     res.status(201).json({
       success: true,
       message: "Signup successful! Please check your email for the verification OTP.",
-      email: user.email,
+      email: tempUser.email,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// ============================================================
+//  @desc    Verify signup email using OTP (converts TempUser to User)
+//  @route   POST /api/auth/verify-signup
+//  @access  Public
+// ============================================================
+exports.verifySignupOtp = async (req, res, next) => {
+  try {
+    const { email, otp } = req.body;
+
+    if (!email || !otp) {
+      return res.status(400).json({ success: false, message: "Email and OTP are required." });
+    }
+
+    const tempUser = await TempUser.findOne({ email });
+    if (!tempUser) {
+      return res.status(404).json({ success: false, message: "Signup session expired or user not found." });
+    }
+
+    // Check expiry
+    if (!tempUser.otpExpires || tempUser.otpExpires < Date.now()) {
+      return res.status(400).json({ success: false, message: "OTP has expired. Please request a new one." });
+    }
+
+    // Verify OTP hash
+    if (!tempUser.otpHash || !verifyOTP(otp, tempUser.otpHash)) {
+      return res.status(400).json({ success: false, message: "Invalid OTP." });
+    }
+
+    // Move to User schema
+    const user = await User.create({
+      name: tempUser.name,
+      email: tempUser.email,
+      password: tempUser.password, // Schema hook prevents double hashing
+      role: tempUser.role,
+      isEmailVerified: true
+    });
+
+    // Move to Seller if applicable
+    let sellerProfile = null;
+    if (tempUser.role === "seller") {
+      sellerProfile = await Seller.create({
+        user: user._id,
+        storeName: tempUser.storeName,
+        storeDescription: tempUser.storeDescription,
+        isApproved: false,
+      });
+    }
+
+    // Clean up temp table
+    await TempUser.findByIdAndDelete(tempUser._id);
+
+    const token = user.generateJWT();
+    const userObj = user.toObject();
+    delete userObj.password;
+
+    res.status(200).json({
+      success: true,
+      message: "Email verified successfully! You are now logged in.",
+      token,
+      user: userObj,
+      sellerProfile
     });
   } catch (error) {
     next(error);
@@ -191,29 +259,36 @@ exports.resendOtp = async (req, res, next) => {
       return res.status(400).json({ success: false, message: "Email is required." });
     }
 
-    const user = await User.findOne({ email }).select("+otpHash +otpExpires");
-    if (!user) {
+    let targetUser = await User.findOne({ email }).select("+otpHash +otpExpires");
+    let isTemp = false;
+
+    if (!targetUser) {
+      targetUser = await TempUser.findOne({ email });
+      isTemp = true;
+    }
+
+    if (!targetUser) {
       return res.status(404).json({ success: false, message: "User not found." });
     }
 
-    if (user.isEmailVerified) {
+    if (!isTemp && targetUser.isEmailVerified) {
       return res.status(400).json({ success: false, message: "Email is already verified." });
     }
 
     // Generate new OTP
     const otp = generateOTP();
-    user.otpHash    = hashOTP(otp);
-    user.otpExpires = new Date(Date.now() + OTP_EXPIRY_MS);
-    await user.save();
+    targetUser.otpHash    = hashOTP(otp);
+    targetUser.otpExpires = new Date(Date.now() + OTP_EXPIRY_MS);
+    await targetUser.save();
 
     // Dev console fallback
     if (process.env.NODE_ENV === "development") {
-      console.log(`📩 OTP for ${user.email}: ${otp}`);
+      console.log(`📩 OTP for ${targetUser.email}: ${otp}`);
     }
 
     const html = emailTemplate({
       title: "Verify Your Account",
-      greeting: `Hi ${user.name},`,
+      greeting: `Hi ${targetUser.name},`,
       body: `
         <p>Here is your new verification code for <strong>ShopEasy</strong>:</p>
       `,
@@ -221,10 +296,10 @@ exports.resendOtp = async (req, res, next) => {
       footer: "If you didn't request this code, you can safely ignore this email.",
     });
 
-    console.log("Sending OTP to:", user.email);
+    console.log("Sending OTP to:", targetUser.email);
     try {
       await sendEmail({
-        to: user.email,
+        to: targetUser.email,
         subject: "Verify your email - ShopEasy",
         html,
       });

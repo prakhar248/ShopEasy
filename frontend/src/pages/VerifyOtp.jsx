@@ -21,6 +21,7 @@ const RESEND_COOLDOWN = 30; // seconds
 const VerifyOtp = () => {
   const [searchParams]    = useSearchParams();
   const emailFromUrl      = searchParams.get("email") || "";
+  const isNewSignup       = searchParams.get("isNewSignup") === "true";
   const navigate          = useNavigate();
   const { login }         = useAuth();
 
@@ -98,7 +99,8 @@ const VerifyOtp = () => {
     setLoading(true);
     setError("");
     try {
-      const { data } = await api.post("/auth/verify-otp", {
+      const endpoint = isNewSignup ? "/auth/verify-signup" : "/auth/verify-existing-user";
+      const { data } = await api.post(endpoint, {
         email: emailFromUrl,
         otp: otpString,
       });
