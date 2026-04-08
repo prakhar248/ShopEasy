@@ -268,15 +268,21 @@ const ProductDetail = () => {
         {/* COL 1: THUMBNAILS */}
         <div className="col-span-1 flex flex-col gap-2">
           {product.images.map((img, i) => (
-            <img
+            <button
               key={i}
-              src={typeof img === "string" ? img : img.url}
-              alt={`${product.name} ${i + 1}`}
-              onClick={() => setActiveImg(i)}
-              className={`w-20 h-20 object-cover border-2 cursor-pointer transition hover:border-gray-400 ${
-                activeImg === i ? "border-brand" : "border-gray-200"
+              type="button"
+              onMouseEnter={() => setActiveImg(i)}
+              className={`w-20 h-20 object-cover border-2 cursor-pointer transition-all duration-200 rounded-lg overflow-hidden hover:border-brand ${
+                activeImg === i ? "border-brand ring-2 ring-brand/30" : "border-gray-200 hover:border-gray-300"
               }`}
-            />
+              aria-label={`Select image ${i + 1}`}
+            >
+              <img
+                src={typeof img === "string" ? img : img.url}
+                alt={`${product.name} ${i + 1}`}
+                className="w-full h-full object-cover"
+              />
+            </button>
           ))}
         </div>
 

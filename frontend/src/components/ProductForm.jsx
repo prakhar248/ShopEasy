@@ -155,9 +155,8 @@ const ProductForm = () => {
       <p className="text-sm text-gray-500 mb-6">Add a new product with images (up to {MAX_IMAGES}).</p>
 
       {success && (
-        <div4 text-sm text-emerald-800 flex items-center gap-3"
-          role="status"
-        >
+        <div text-sm text-emerald-800 flex items-center gap-3
+          role="status">
           <CheckCircle className="w-5 h-5 shrink-0 text-emerald-600" />
           <div>
             <p className="font-semibold">Success!</p>
