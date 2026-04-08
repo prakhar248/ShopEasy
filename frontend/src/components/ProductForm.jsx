@@ -1,5 +1,6 @@
 import { useEffect, useId, useRef, useState } from "react";
 import api from "../services/api";
+import { CheckCircle } from "lucide-react";
 
 const initialForm = {
   name: "",
@@ -139,8 +140,7 @@ const ProductForm = () => {
         headers: { "Content-Type": "multipart/form-data" },
       });
 
-      window.alert("Product created successfully!");
-      setSuccess("Product created successfully.");
+      setSuccess(`✨ "${form.name}" has been created successfully! It's now live on ShopEasy.`);
       resetAll();
     } catch (err) {
       setError(getErrorMessage(err));
@@ -155,10 +155,14 @@ const ProductForm = () => {
       <p className="text-sm text-gray-500 mb-6">Add a new product with images (up to {MAX_IMAGES}).</p>
 
       {success && (
-        <div
-          className="mb-4 rounded-lg bg-emerald-50 border border-emerald-200 px-4 py-3 text-sm text-emerald-800"
+        <div4 text-sm text-emerald-800 flex items-center gap-3"
           role="status"
         >
+          <CheckCircle className="w-5 h-5 shrink-0 text-emerald-600" />
+          <div>
+            <p className="font-semibold">Success!</p>
+            <p className="text-emerald-700">{success}</p>
+          </div>
           {success}
         </div>
       )}
@@ -258,7 +262,7 @@ const ProductForm = () => {
 
         <div>
           <label htmlFor={`${formId}-images`} className="block text-sm font-medium text-gray-700 mb-1">
-            Images
+            Images {imageItems.length > 0 && <span className="text-brand font-semibold">({imageItems.length}/{MAX_IMAGES} selected)</span>}
           </label>
           <input
             id={`${formId}-images`}

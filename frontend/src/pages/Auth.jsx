@@ -198,7 +198,7 @@ const Auth = ({ mode = "login" }) => {
                 <div className="relative">
                   <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                   <input type="text" value={form.name} onChange={set("name")}
-                    placeholder="John Doe" className="input-field pl-9" required />
+                    placeholder="Name" className="input-field pl-9" required />
                 </div>
               </div>
 
@@ -207,7 +207,7 @@ const Auth = ({ mode = "login" }) => {
                 <div className="relative">
                   <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                   <input type="email" value={form.email} onChange={set("email")}
-                    placeholder="you@example.com" className="input-field pl-9" required />
+                    placeholder="Email" className="input-field pl-9" required />
                 </div>
               </div>
 
@@ -273,7 +273,7 @@ const Auth = ({ mode = "login" }) => {
                 <div className="relative">
                   <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                   <input type="password" value={form.password} onChange={set("password")}
-                    placeholder="Min 6 characters" className="input-field pl-9" required minLength={6} />
+                    placeholder="••••••••" className="input-field pl-9" required minLength={6} />
                 </div>
               </div>
 
