@@ -81,10 +81,10 @@ exports.placeOrder = async (req, res, next) => {
 
     // Send order confirmation email
     try {
-      await sendEmail(
-        req.user.email,
-        "Order Confirmation — ShopperStop",
-        emailTemplate({
+      await sendEmail({
+        to: req.user.email,
+        subject: "Order Confirmation — ShopperStop",
+        html: emailTemplate({
           title: "Order Placed",
           greeting: `Hi ${req.user.name},`,
           body: `
@@ -108,8 +108,8 @@ exports.placeOrder = async (req, res, next) => {
           ctaText: "Complete Payment",
           ctaUrl: `${process.env.FRONTEND_URL || "http://localhost:5173"}/orders`,
           footer: "Thank you for shopping with ShopperStop!",
-        })
-      );
+        }),
+      });
       console.log("✅ Order confirmation email sent to:", req.user.email);
     } catch (emailError) {
       console.error("Failed to send order confirmation email:", emailError);
@@ -173,10 +173,10 @@ exports.updateOrderStatus = async (req, res, next) => {
     // Send email notification when order is shipped
     if (status === "shipped" && previousStatus !== "shipped") {
       try {
-        await sendEmail(
-          order.user.email,
-          "Your Order Has Been Shipped! — ShopperStop",
-          emailTemplate({
+        await sendEmail({
+          to: order.user.email,
+          subject: "Your Order Has Been Shipped! — ShopperStop",
+          html: emailTemplate({
             title: "Order Shipped",
             greeting: `Hi ${order.user.name},`,
             body: `
@@ -192,8 +192,8 @@ exports.updateOrderStatus = async (req, res, next) => {
             ctaText: "Track My Order",
             ctaUrl: `${process.env.FRONTEND_URL || "http://localhost:5173"}/orders`,
             footer: "Thank you for your patience! — The ShopperStop Team",
-          })
-        );
+          }),
+        });
         console.log("✅ Shipped email sent to:", order.user.email);
       } catch (emailError) {
         console.error("Failed to send shipped email:", emailError);
@@ -203,10 +203,10 @@ exports.updateOrderStatus = async (req, res, next) => {
     // Send email when order is delivered
     if (status === "delivered" && previousStatus !== "delivered") {
       try {
-        await sendEmail(
-          order.user.email,
-          "Your Order Has Been Delivered! — ShopperStop",
-          emailTemplate({
+        await sendEmail({
+          to: order.user.email,
+          subject: "Your Order Has Been Delivered! — ShopperStop",
+          html: emailTemplate({
             title: "Order Delivered",
             greeting: `Hi ${order.user.name},`,
             body: `
@@ -223,8 +223,8 @@ exports.updateOrderStatus = async (req, res, next) => {
             ctaText: "Write a Review",
             ctaUrl: `${process.env.FRONTEND_URL || "http://localhost:5173"}/orders`,
             footer: "Thank you for shopping with ShopperStop!",
-          })
-        );
+          }),
+        });
         console.log("✅ Delivered email sent to:", order.user.email);
       } catch (emailError) {
         console.error("Failed to send delivered email:", emailError);

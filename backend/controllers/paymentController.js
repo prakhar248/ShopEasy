@@ -152,10 +152,10 @@ exports.verifyPayment = async (req, res, next) => {
 
     // Send payment success email (non-blocking)
     try {
-      await sendEmail(
-        order.user.email,
-        "Payment Successful — Order Confirmed! — ShopperStop",
-        emailTemplate({
+      await sendEmail({
+        to: order.user.email,
+        subject: "Payment Successful — Order Confirmed! — ShopperStop",
+        html: emailTemplate({
           title: "Payment Confirmed",
           greeting: `Hi ${order.user.name},`,
           body: `
@@ -174,13 +174,13 @@ exports.verifyPayment = async (req, res, next) => {
                 <td style="padding:8px 0; text-align:right; font-size:12px; font-family:monospace; color:#64748b;">${razorpay_payment_id}</td>
               </tr>
             </table>
-            <p>Your order will be processed and shipped soon. You’ll receive a shipping notification once dispatched.</p>
+            <p>Your order will be processed and shipped soon. You'll receive a shipping notification once dispatched.</p>
           `,
           ctaText: "View My Orders",
           ctaUrl: `${process.env.FRONTEND_URL || "http://localhost:5173"}/orders`,
           footer: "Thank you for shopping with ShopperStop!",
-        })
-      );
+        }),
+      });
       console.log("✅ Payment success email sent to:", order.user.email);
     } catch (emailError) {
       console.error("Failed to send payment success email:", emailError);
@@ -245,7 +245,6 @@ exports.generatePayUPayment = async (req, res, next) => {
     await order.save();
 
     // Return ALL fields needed for the PayU form
-    // Spread the entire paymentObject — this guarantees no field is missed or mistyped
     res.status(200).json({
       success: true,
       paymentData: paymentObject,
@@ -367,10 +366,10 @@ exports.handlePayUSuccess = async (req, res, next) => {
 
       // Send payment success email (non-blocking)
       try {
-        await sendEmail(
-          order.user.email,
-          "Payment Successful — Order Confirmed! — ShopperStop",
-          emailTemplate({
+        await sendEmail({
+          to: order.user.email,
+          subject: "Payment Successful — Order Confirmed! — ShopperStop",
+          html: emailTemplate({
             title: "Payment Confirmed",
             greeting: `Hi ${order.user.name},`,
             body: `
@@ -389,13 +388,13 @@ exports.handlePayUSuccess = async (req, res, next) => {
                   <td style="padding:8px 0; text-align:right; font-size:12px; font-family:monospace; color:#64748b;">${txnid}</td>
                 </tr>
               </table>
-              <p>Your order will be processed and shipped soon. You’ll receive a shipping notification once dispatched.</p>
+              <p>Your order will be processed and shipped soon. You'll receive a shipping notification once dispatched.</p>
             `,
             ctaText: "View My Orders",
             ctaUrl: `${process.env.FRONTEND_URL || "http://localhost:5173"}/orders`,
             footer: "Thank you for shopping with ShopperStop!",
-          })
-        );
+          }),
+        });
         console.log("✅ Payment success email sent to:", order.user.email);
       } catch (emailError) {
         console.error("Failed to send payment success email:", emailError);
@@ -414,16 +413,16 @@ exports.handlePayUSuccess = async (req, res, next) => {
 
       // Send failure notification email
       try {
-        await sendEmail(
-          order.user.email,
-          "Payment Failed - Please Try Again ❌",
-          `<p>Hi ${order.user.name},</p>
+        await sendEmail({
+          to: order.user.email,
+          subject: "Payment Failed - Please Try Again ❌",
+          html: `<p>Hi ${order.user.name},</p>
            <p>Unfortunately, your payment could not be processed.</p>
            <p><strong>Order ID:</strong> ${order._id}</p>
            <p><strong>Amount:</strong> ₹${order.totalPrice}</p>
            <br/>
-           <p>Please try again or contact our support team if you need assistance.</p>`
-        );
+           <p>Please try again or contact our support team if you need assistance.</p>`,
+        });
       } catch (emailError) {
         console.error("Failed to send payment failure email:", emailError);
       }
@@ -492,16 +491,16 @@ exports.handlePayUFailure = async (req, res, next) => {
 
       // Send failure email
       try {
-        await sendEmail(
-          order.user.email,
-          "Payment Failed - Please Try Again ❌",
-          `<p>Hi ${order.user.name},</p>
+        await sendEmail({
+          to: order.user.email,
+          subject: "Payment Failed - Please Try Again ❌",
+          html: `<p>Hi ${order.user.name},</p>
            <p>Unfortunately, your payment could not be processed via PayU.</p>
            <p><strong>Order ID:</strong> ${order._id}</p>
            <p><strong>Amount:</strong> ₹${order.totalPrice}</p>
            <br/>
-           <p>Please try again or use a different payment method.</p>`
-        );
+           <p>Please try again or use a different payment method.</p>`,
+        });
       } catch (emailError) {
         console.error("Failed to send payment failure email:", emailError);
       }

@@ -1,38 +1,47 @@
 // ============================================================
-//  utils/sendEmail.js — Resend email utility
-//  Replaces Nodemailer. Uses Resend SDK for transactional emails.
+//  utils/sendEmail.js — Nodemailer email utility
+//  Uses Gmail SMTP for transactional emails.
 // ============================================================
 
-const { Resend } = require("resend");
+const nodemailer = require("nodemailer");
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+// Create reusable transporter using Gmail SMTP
+const transporter = nodemailer.createTransport({
+  service: "gmail",
+  auth: {
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_PASS,
+  },
+});
 
 /**
- * Send an email using Resend.
+ * Send an email using Nodemailer.
  * @param {Object} options
  * @param {string} options.to      — recipient email
  * @param {string} options.subject — email subject line
  * @param {string} options.html    — HTML body content
- * @returns {Promise<Object>}      — Resend API response
+ * @returns {Promise<Object>}      — Nodemailer response
  */
 const sendEmail = async ({ to, subject, html }) => {
   try {
-    const { data, error } = await resend.emails.send({
-      from: "ShopperStop <onboarding@resend.dev>",
+    const info = await transporter.sendMail({
+      from: `"ShopperStop" <${process.env.EMAIL_USER}>`,
       to,
       subject,
       html,
     });
 
-    if (error) {
-      console.error("❌ Resend email error:", error);
-      throw new Error(error.message || "Failed to send email");
+    console.log("✅ Email sent:", info.messageId);
+    return info;
+  } catch (err) {
+    console.error("❌ Email error:", err.message);
+
+    // In development, don't throw — just log the error
+    if (process.env.NODE_ENV === "development") {
+      console.log("⚠️  Email failed in dev mode — continuing without sending.");
+      return null;
     }
 
-    console.log("✅ Email sent via Resend:", data?.id);
-    return data;
-  } catch (err) {
-    console.error("❌ Email send failed:", err.message);
     throw err;
   }
 };

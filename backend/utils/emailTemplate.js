@@ -1,6 +1,7 @@
 // ============================================================
 //  utils/emailTemplate.js — Branded HTML email wrapper
-//  Supports both OTP display and CTA button layouts.
+//  Supports OTP display, CTA button, and general content.
+//  Branding: ShopperStop
 //  Usage: emailTemplate({ title, greeting, body, otp, footer })
 // ============================================================
 

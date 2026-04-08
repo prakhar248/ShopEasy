@@ -52,11 +52,11 @@ const sendEmail = require("./utils/sendEmail");
 app.get("/api/test-email", async (req, res) => {
   try {
     await sendEmail({
-      to: "prakharchouhan.dev@gmail.com",
+      to: process.env.EMAIL_USER || "test@example.com",
       subject: "Test Email 🚀",
-      html: "<h1>Resend email is working successfully!</h1>",
+      html: "<h1>Nodemailer email is working successfully!</h1>",
     });
-    res.send("✅ Email sent successfully via Resend!");
+    res.send("✅ Email sent successfully via Nodemailer!");
   } catch (err) {
     console.error("❌ Email error:", err.message);
     res.status(500).send("❌ Email failed");

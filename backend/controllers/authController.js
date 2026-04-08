@@ -1,6 +1,6 @@
 // ============================================================
 //  controllers/authController.js  —  OTP-based verification
-//  Uses Resend for email, SHA-256 hashed OTPs with expiry.
+//  Uses Nodemailer for email, SHA-256 hashed OTPs with expiry.
 // ============================================================
 
 const User   = require("../models/User");
@@ -70,6 +70,11 @@ exports.signup = async (req, res, next) => {
     user.otpHash    = hashOTP(otp);
     user.otpExpires = new Date(Date.now() + OTP_EXPIRY_MS);
     await user.save();
+
+    // Dev console fallback
+    if (process.env.NODE_ENV === "development") {
+      console.log(`📩 OTP for ${user.email}: ${otp}`);
+    }
 
     // 7. Send verification OTP email
     const html = emailTemplate({
@@ -180,6 +185,11 @@ exports.resendOtp = async (req, res, next) => {
     user.otpExpires = new Date(Date.now() + OTP_EXPIRY_MS);
     await user.save();
 
+    // Dev console fallback
+    if (process.env.NODE_ENV === "development") {
+      console.log(`📩 OTP for ${user.email}: ${otp}`);
+    }
+
     const html = emailTemplate({
       title: "Verify Your Account",
       greeting: `Hi ${user.name},`,
@@ -278,6 +288,11 @@ exports.forgotPassword = async (req, res, next) => {
     user.resetOtpHash    = hashOTP(otp);
     user.resetOtpExpires = new Date(Date.now() + OTP_EXPIRY_MS);
     await user.save();
+
+    // Dev console fallback
+    if (process.env.NODE_ENV === "development") {
+      console.log(`📩 Reset OTP for ${user.email}: ${otp}`);
+    }
 
     const html = emailTemplate({
       title: "Reset Your Password",

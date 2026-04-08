@@ -45,7 +45,7 @@ const userSchema = new mongoose.Schema(
     },
 
     // ── Email Verification (OTP-based) ──────────────────────
-    isVerified: { type: Boolean, default: false },
+    isEmailVerified: { type: Boolean, default: false },
     otpHash:    { type: String, select: false },
     otpExpires: { type: Date,   select: false },
 
@@ -102,10 +102,15 @@ userSchema.methods.matchPassword = async function (entered) {
   return await bcrypt.compare(entered, this.password);
 };
 
-// JWT payload carries id + role so middleware never needs a DB call for role checks
+// JWT payload carries id + role + isEmailVerified so middleware never needs a DB call for role checks
 userSchema.methods.generateJWT = function () {
   return jwt.sign(
-    { id: this._id, role: this.role },
+    { 
+      id: this._id, 
+      email: this.email,
+      role: this.role,
+      isEmailVerified: this.isEmailVerified
+    },
     process.env.JWT_SECRET,
     { expiresIn: process.env.JWT_EXPIRE || "30d" }
   );
