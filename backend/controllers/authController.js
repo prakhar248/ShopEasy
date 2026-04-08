@@ -88,11 +88,26 @@ exports.signup = async (req, res, next) => {
       footer: "If you didn't create an account on ShopEasy, you can safely ignore this email.",
     });
 
-    await sendEmail({
-      to: user.email,
-      subject: "Verify Your Account — ShopEasy",
-      html,
-    });
+    console.log("Sending OTP to:", user.email);
+    try {
+      await sendEmail({
+        to: user.email,
+        subject: "Verify your email - ShopEasy",
+        html,
+      });
+      console.log("Email sent successfully");
+    } catch (error) {
+      console.error("Email sending failed:", error);
+      // Clean up the user since email failed so they can retry signup
+      await User.findByIdAndDelete(user._id);
+      if (role === "seller") {
+        await Seller.findOneAndDelete({ user: user._id });
+      }
+      return res.status(500).json({
+        success: false,
+        message: "Failed to send OTP email",
+      });
+    }
 
     res.status(201).json({
       success: true,
@@ -206,11 +221,21 @@ exports.resendOtp = async (req, res, next) => {
       footer: "If you didn't request this code, you can safely ignore this email.",
     });
 
-    await sendEmail({
-      to: user.email,
-      subject: "Your New Verification Code — ShopEasy",
-      html,
-    });
+    console.log("Sending OTP to:", user.email);
+    try {
+      await sendEmail({
+        to: user.email,
+        subject: "Verify your email - ShopEasy",
+        html,
+      });
+      console.log("Email sent successfully");
+    } catch (error) {
+      console.error("Email sending failed:", error);
+      return res.status(500).json({
+        success: false,
+        message: "Failed to send OTP email",
+      });
+    }
 
     res.status(200).json({
       success: true,
@@ -310,11 +335,21 @@ exports.forgotPassword = async (req, res, next) => {
       footer: "If you didn't request a password reset, you can safely ignore this email. Your password will remain unchanged.",
     });
 
-    await sendEmail({
-      to: user.email,
-      subject: "Reset Your Password — ShopEasy",
-      html,
-    });
+    console.log("Sending Reset OTP to:", user.email);
+    try {
+      await sendEmail({
+        to: user.email,
+        subject: "Reset your password - ShopEasy",
+        html,
+      });
+      console.log("Email sent successfully");
+    } catch (error) {
+      console.error("Email sending failed:", error);
+      return res.status(500).json({
+        success: false,
+        message: "Failed to send OTP email",
+      });
+    }
 
     res.status(200).json({
       success: true,

@@ -31,17 +31,10 @@ const sendEmail = async ({ to, subject, html }) => {
       html,
     });
 
-    console.log("✅ Email sent:", info.messageId);
+    console.log("Email sent successfully:", info.messageId);
     return info;
   } catch (err) {
-    console.error("❌ Email error:", err.message);
-
-    // In development, don't throw — just log the error
-    if (process.env.NODE_ENV === "development") {
-      console.log("⚠️  Email failed in dev mode — continuing without sending.");
-      return null;
-    }
-
+    console.error("Email sending failed:", err);
     throw err;
   }
 };
