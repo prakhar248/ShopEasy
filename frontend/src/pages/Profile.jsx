@@ -7,6 +7,7 @@ import api from "../api/axios";
 import { useAuth } from "../context/AuthContext";
 import { toast } from "react-toastify";
 import { User, Mail, Phone, Calendar, Package, ShoppingCart, CheckCircle, AlertCircle, Pencil, Lock } from "lucide-react";
+import { motion } from "framer-motion";
 
 const Profile = () => {
   const { user, login, fetchProfile } = useAuth();
@@ -137,7 +138,7 @@ const Profile = () => {
   if (!user) return null;
 
   return (
-    <div className="max-w-2xl mx-auto px-4 py-10">
+    <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.32 }} className="max-w-2xl mx-auto px-4 py-10">
       <h1 className="text-2xl font-bold text-gray-900 mb-6">My Profile</h1>
 
       <div className="card mb-6">
@@ -368,7 +369,7 @@ const Profile = () => {
           </div>
         </div>
       )}
-    </div>
+    </motion.div>
   );
 };
 

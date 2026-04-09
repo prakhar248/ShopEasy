@@ -8,6 +8,7 @@ import { useEffect, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import api from "../api/axios";
 import { toast } from "react-toastify";
+import { motion } from "framer-motion";
 
 const STATUS_COLORS = {
   processing:       "bg-yellow-100 text-yellow-700",
@@ -274,7 +275,7 @@ const Orders = () => {
   );
 
   return (
-    <div className="max-w-4xl mx-auto px-4 py-10">
+    <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.28 }} className="max-w-4xl mx-auto px-4 py-10">
       <div className="flex flex-wrap items-center justify-between gap-4 mb-8">
         <h1 className="text-3xl font-bold text-gray-800">My Orders</h1>
 
@@ -286,7 +287,7 @@ const Orders = () => {
               onClick={() => setFilter(opt.value)}
               className={`px-3 py-1.5 text-xs font-semibold rounded-md transition ${
                 filter === opt.value
-                  ? "bg-white text-gray-800 shadow-sm"
+                  ? "bg-white text-gray-800 shadow-card"
                   : "text-gray-500 hover:text-gray-700"
               }`}
             >
@@ -307,13 +308,13 @@ const Orders = () => {
         </div>
       ) : (
         <div className="space-y-5">
-          {filteredOrders.map((order) => {
+          {filteredOrders.map((order, i) => {
             const methodBadge = PAYMENT_METHOD_BADGE[order.paymentMethod] || null;
             const canRetry = order.paymentStatus === "failed" || order.paymentStatus === "pending";
             const isRetrying = retryingOrderId === order._id;
 
             return (
-              <div key={order._id} className="card">
+              <motion.div key={order._id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.24, delay: i * 0.05 }} className="card interactive">
                 {/* Order header */}
                 <div className="flex flex-wrap items-start justify-between gap-3 mb-4 pb-4 border-b border-gray-100">
                   <div>
@@ -417,7 +418,7 @@ const Orders = () => {
                         <button
                           onClick={() => handleRetryPayment(order._id, "razorpay")}
                           disabled={isRetrying}
-                          className="px-4 py-2 bg-blue-600 text-white text-xs font-semibold rounded-lg hover:bg-blue-700 transition disabled:opacity-50 flex items-center gap-1.5"
+                          className="px-4 py-2 bg-blue-600 text-white text-xs font-semibold rounded-lg hover:bg-blue-700 transition disabled:opacity-50 flex items-center gap-1.5 interactive"
                         >
                           {isRetrying ? (
                             <svg className="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
@@ -430,7 +431,7 @@ const Orders = () => {
                         <button
                           onClick={() => handleRetryPayment(order._id, "payu")}
                           disabled={isRetrying}
-                          className="px-4 py-2 bg-green-600 text-white text-xs font-semibold rounded-lg hover:bg-green-700 transition disabled:opacity-50 flex items-center gap-1.5"
+                          className="px-4 py-2 bg-green-600 text-white text-xs font-semibold rounded-lg hover:bg-green-700 transition disabled:opacity-50 flex items-center gap-1.5 interactive"
                         >
                           {isRetrying ? (
                             <svg className="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24">

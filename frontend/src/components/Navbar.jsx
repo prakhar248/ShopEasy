@@ -25,6 +25,8 @@ const Navbar = () => {
   const { cartCount } = useCart();
   const navigate = useNavigate();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [scrolled, setScrolled] = useState(false);
 
   const handleLogout = () => {
     logout();
@@ -33,6 +35,23 @@ const Navbar = () => {
   };
 
   const closeMobile = () => setMobileOpen(false);
+
+  const handleSearchSubmit = (e) => {
+    e?.preventDefault();
+    if (searchQuery.trim()) {
+      navigate(`/products?search=${encodeURIComponent(searchQuery.trim())}`);
+      setSearchQuery("");
+      setMobileOpen(false);
+    }
+  };
+
+  // Add slight backdrop blur & elevation when scrolling
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 12);
+    onScroll();
+    window.addEventListener("scroll", onScroll);
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
 
   const NavLink = ({ to, children, className = "" }) => (
     <Link
@@ -45,7 +64,7 @@ const Navbar = () => {
   );
 
   return (
-    <nav className="bg-white/95 backdrop-blur-sm border-b border-gray-200 sticky top-0 z-50 shadow-nav">
+    <nav className={`sticky top-0 z-50 border-b transition-colors duration-300 ${scrolled ? 'backdrop-blur-md bg-white/70 shadow-md border-gray-100' : 'bg-white/95 backdrop-blur-sm border-gray-200 shadow-nav'}`}>
       <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
 
         {/* Brand */}
@@ -54,8 +73,23 @@ const Navbar = () => {
           ShopEasy
         </Link>
 
+        {/* Center: Search (desktop) + Nav links */}
+        <div className="hidden lg:flex items-center flex-1 px-6">
+          <form onSubmit={handleSearchSubmit} className="w-full max-w-lg mx-auto">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <input
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search products, brands..."
+                className="input-field pl-10"
+              />
+            </div>
+          </form>
+        </div>
+
         {/* Center Nav — Desktop */}
-        <div className="hidden md:flex items-center gap-6 mx-8">
+        <div className="hidden lg:flex items-center gap-6 ml-6">
           <NavLink to="/">Home</NavLink>
           <NavLink to="/products">Products</NavLink>
           {isApprovedSeller && (
@@ -80,10 +114,10 @@ const Navbar = () => {
 
           {/* Cart — customers only */}
           {(!user || user.role === "customer") && (
-            <Link to="/cart" className="relative p-2 text-gray-600 hover:text-brand transition-colors">
+            <Link to="/cart" className="relative p-2 text-gray-600 hover:text-accent transition-colors">
               <ShoppingCart className="w-5 h-5" />
               {cartCount > 0 && (
-                <span className="absolute -top-0.5 -right-0.5 bg-brand text-white text-[10px]
+                <span className="absolute -top-0.5 -right-0.5 bg-accent text-white text-[10px]
                                  rounded-full h-4.5 w-4.5 min-w-[18px] flex items-center justify-center font-bold leading-none px-1">
                   {cartCount > 9 ? "9+" : cartCount}
                 </span>
@@ -116,7 +150,7 @@ const Navbar = () => {
               )}
 
               {/* Profile */}
-              <Link to="/profile" className="flex items-center gap-2 text-sm text-gray-700 hover:text-brand transition-colors">
+              <Link to="/profile" className="flex items-center gap-2 text-sm text-gray-700 hover:text-accent transition-colors">
                 <div className="w-8 h-8 rounded-full bg-brand-light flex items-center justify-center">
                   <User className="w-4 h-4 text-brand" />
                 </div>
@@ -136,7 +170,7 @@ const Navbar = () => {
           )}
 
           {/* Mobile hamburger */}
-          <button onClick={() => setMobileOpen(!mobileOpen)} className="md:hidden p-2 text-gray-600 hover:text-brand">
+          <button onClick={() => setMobileOpen(!mobileOpen)} className="md:hidden p-2 text-gray-600 hover:text-accent">
             {mobileOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
           </button>
         </div>
@@ -145,7 +179,13 @@ const Navbar = () => {
       {/* Mobile Drawer */}
       {mobileOpen && (
         <div className="md:hidden border-t border-gray-100 bg-white animate-fade-in">
-          <div className="px-4 py-4 space-y-1">
+          <div className="px-4 py-4 space-y-3">
+            <form onSubmit={handleSearchSubmit} className="px-2">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <input value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} placeholder="Search products..." className="input-field pl-10" />
+              </div>
+            </form>
             <MobileLink to="/" icon={<Home className="w-4 h-4" />} onClick={closeMobile}>Home</MobileLink>
             <MobileLink to="/products" icon={<Search className="w-4 h-4" />} onClick={closeMobile}>Products</MobileLink>
 

@@ -5,8 +5,10 @@ import { Link } from "react-router-dom";
 import { useCart } from "../context/CartContext";
 import { useAuth } from "../context/AuthContext";
 import { ShoppingCart, Star } from "lucide-react";
+import { toast } from "react-toastify";
+import { motion } from "framer-motion";
 
-const ProductCard = ({ product }) => {
+const ProductCard = ({ product, index = 0 }) => {
   const { addToCart } = useCart();
   const { user }      = useAuth();
 
@@ -23,25 +25,32 @@ const ProductCard = ({ product }) => {
   const handleAddToCart = (e) => {
     e.preventDefault();
     if (!user) {
-      alert("Please log in to add items to cart");
+      toast.info("Please log in to add items to cart");
       return;
     }
     addToCart(product._id, 1);
+    toast.success("Added to cart");
   };
 
   return (
     <Link to={`/products/${product._id}`} className="group block">
-      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden
-                      shadow-sm hover:shadow-md hover:border-gray-300
-                      transition-all duration-200">
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3, delay: index * 0.05 }}
+        className="bg-white rounded-xl border border-gray-200 overflow-hidden
+                    shadow-card hover:shadow-card-hover hover:border-gray-300
+                    transform hover:scale-105 interactive"
+      >
 
         {/* Image */}
-        <div className="relative aspect-square bg-gray-50 overflow-hidden">
+        <div className="relative aspect-[4/3] bg-gray-50 overflow-hidden">
           <img
             src={imageUrl}
             alt={product.name}
-            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+            className="w-full h-full object-cover transform transition-smooth group-hover:scale-110"
           />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/0 to-black/20 opacity-0 group-hover:opacity-40 transition-opacity duration-300 pointer-events-none" />
           {hasDiscount && (
             <span className="absolute top-2.5 left-2.5 bg-red-500 text-white text-[11px]
                              font-bold px-2 py-0.5 rounded-md">
@@ -59,10 +68,10 @@ const ProductCard = ({ product }) => {
 
         {/* Info */}
         <div className="p-3.5">
-          <p className="text-[11px] text-gray-400 uppercase tracking-wider font-medium mb-1">
+          <p className="text-[11px] text-gray-400 uppercase tracking-wider font-semibold mb-1">
             {product.category}
           </p>
-          <h3 className="font-medium text-gray-900 text-sm leading-snug line-clamp-2 mb-2">
+          <h3 className="font-semibold text-brand text-sm leading-snug line-clamp-2 mb-2">
             {product.name}
           </h3>
 
@@ -85,22 +94,17 @@ const ProductCard = ({ product }) => {
 
           {/* Price + Add */}
           <div className="flex items-center justify-between">
-            <div>
-              <span className="font-bold text-gray-900 text-sm">
-                ₹{displayPrice?.toLocaleString()}
-              </span>
+            <div className="flex items-baseline gap-2">
+              <span className="font-bold text-gray-900 text-sm">₹{displayPrice?.toLocaleString()}</span>
               {hasDiscount && (
-                <span className="text-xs text-gray-400 line-through ml-1.5">
-                  ₹{product.price?.toLocaleString()}
-                </span>
+                <span className="text-xs text-gray-400 line-through">₹{product.price?.toLocaleString()}</span>
               )}
             </div>
 
             <button
               onClick={handleAddToCart}
               disabled={product.stock === 0}
-              className="p-2 rounded-lg bg-brand-light text-brand hover:bg-brand hover:text-white
-                         transition-colors duration-150 disabled:opacity-30 disabled:cursor-not-allowed"
+              className="p-2 rounded-lg bg-accent/10 text-accent hover:bg-accent hover:text-white transform hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 ease-in-out disabled:opacity-30 disabled:cursor-not-allowed"
               title="Add to cart"
             >
               <ShoppingCart className="w-4 h-4" />

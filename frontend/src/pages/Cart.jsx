@@ -17,6 +17,7 @@ import {
   Package,
   Truck,
 } from "lucide-react";
+import { motion } from "framer-motion";
 
 const Cart = () => {
   const { cart, loading, updateQuantity, removeFromCart, clearCart } = useCart();
@@ -92,18 +93,18 @@ const Cart = () => {
   );
 
   if (items.length === 0 && savedItems.length === 0) return (
-    <div className="max-w-md mx-auto px-4 py-24 text-center">
-      <div className="w-16 h-16 rounded-2xl bg-gray-100 mx-auto mb-5 flex items-center justify-center">
-        <ShoppingCart className="w-7 h-7 text-gray-400" />
-      </div>
-      <h2 className="text-xl font-bold text-gray-900 mb-1.5">Your cart is empty</h2>
-      <p className="text-gray-500 text-sm mb-6">Add some products to get started</p>
-      <Link to="/products" className="btn-primary">Browse Products</Link>
-    </div>
-  );
+      <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35 }} className="max-w-md mx-auto px-4 py-24 text-center">
+        <div className="w-24 h-24 rounded-2xl bg-gray-100 mx-auto mb-6 flex items-center justify-center shadow-card">
+          <ShoppingCart className="w-10 h-10 text-gray-400" />
+        </div>
+        <h2 className="text-2xl font-bold text-gray-900 mb-2">Your cart is empty</h2>
+        <p className="text-gray-500 text-sm mb-6">Add products to your cart to see them here.</p>
+        <Link to="/products" className="btn-primary">Shop Now</Link>
+      </motion.div>
+    );
 
   return (
-    <div className="max-w-6xl mx-auto px-4 py-8">
+    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }} className="max-w-6xl mx-auto px-4 py-8">
       <h1 className="text-2xl font-bold text-gray-900 mb-6">Shopping Cart</h1>
 
       <div className="grid lg:grid-cols-3 gap-8">
@@ -119,8 +120,8 @@ const Cart = () => {
                 </button>
               </div>
 
-              {items.map((item) => (
-                <div key={item._id} className="card flex gap-4">
+              {items.map((item, i) => (
+                <motion.div key={item._id} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3, delay: i * 0.05 }} className="card flex gap-4 items-center group hover:shadow-card-hover hover:-translate-y-0.5 transform interactive">
                   <Link to={`/products/${item.product._id}`} className="shrink-0">
                     <img
                       src={getImageUrl(item.product)}
@@ -130,31 +131,31 @@ const Cart = () => {
                   </Link>
 
                   <div className="flex-1 min-w-0">
-                    <Link to={`/products/${item.product._id}`}
-                          className="font-medium text-gray-900 hover:text-brand text-sm line-clamp-2 transition-colors">
+                      <Link to={`/products/${item.product._id}`}
+                        className="font-medium text-brand hover:text-accent text-sm line-clamp-2 transition-colors">
                       {item.product.name}
                     </Link>
-                    <p className="text-brand font-bold mt-1">₹{item.priceAtAdd.toLocaleString()}</p>
+                      <p className="text-accent font-bold mt-1">₹{item.priceAtAdd.toLocaleString()}</p>
 
                     <div className="flex items-center gap-3 mt-2.5 flex-wrap">
                       {/* Quantity */}
-                      <div className="flex items-center border border-gray-200 rounded-lg">
+                      <div className="inline-flex items-center border border-gray-200 rounded-lg overflow-hidden">
                         <button
                           onClick={() => updateQuantity(item.product._id, item.quantity - 1)}
                           disabled={item.quantity <= 1}
-                          className="p-1.5 hover:bg-gray-50 disabled:opacity-30 transition-colors rounded-l-lg"
+                          className="px-3 py-2 hover:bg-accent/10 disabled:opacity-30 transition-colors"
                         >
-                          <Minus className="w-3.5 h-3.5" />
+                          <Minus className="w-4 h-4" />
                         </button>
-                        <span className="px-3 py-1 text-sm font-semibold text-gray-800 border-x border-gray-200 min-w-[32px] text-center">
+                        <span className="px-4 py-2 text-sm font-semibold text-gray-800 min-w-[36px] text-center">
                           {item.quantity}
                         </span>
                         <button
                           onClick={() => updateQuantity(item.product._id, item.quantity + 1)}
                           disabled={item.quantity >= item.product.stock}
-                          className="p-1.5 hover:bg-gray-50 disabled:opacity-30 transition-colors rounded-r-lg"
+                          className="px-3 py-2 hover:bg-accent/10 disabled:opacity-30 transition-colors"
                         >
-                          <Plus className="w-3.5 h-3.5" />
+                          <Plus className="w-4 h-4" />
                         </button>
                       </div>
 
@@ -169,12 +170,12 @@ const Cart = () => {
                     </div>
                   </div>
 
-                  <div className="text-right shrink-0 hidden sm:block">
-                    <p className="font-bold text-gray-900 text-sm">
-                      ₹{(item.priceAtAdd * item.quantity).toLocaleString()}
-                    </p>
-                  </div>
-                </div>
+                    <div className="text-right shrink-0 hidden sm:block">
+                      <p className="font-bold text-gray-900 text-sm">
+                        ₹{(item.priceAtAdd * item.quantity).toLocaleString()}
+                      </p>
+                    </div>
+                </motion.div>
               ))}
             </>
           )}
@@ -219,7 +220,7 @@ const Cart = () => {
         {/* Order Summary */}
         {items.length > 0 && (
           <div className="lg:col-span-1">
-            <div className="card sticky top-24 space-y-4">
+            <div className="card sticky top-24 space-y-4 shadow-card">
               <h2 className="font-semibold text-gray-900">Order Summary</h2>
 
               {/* Free shipping progress */}
@@ -255,7 +256,7 @@ const Cart = () => {
 
               <div className="flex justify-between font-bold text-gray-900 text-lg pt-1">
                 <span>Total</span>
-                <span>₹{grandTotal.toLocaleString()}</span>
+                <span className="text-accent text-2xl">₹{grandTotal.toLocaleString()}</span>
               </div>
 
               <button

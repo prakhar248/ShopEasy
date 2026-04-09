@@ -15,6 +15,7 @@ import AddressForm from "../components/AddressForm";
 import { useCart } from "../context/CartContext";
 import { useAuth } from "../context/AuthContext";
 import { toast } from "react-toastify";
+import { motion } from "framer-motion";
 
 const STEPS = ["Address", "Review", "Payment"];
 
@@ -405,9 +406,9 @@ const Checkout = () => {
   // ── PayU Redirect Overlay ────────────────────────────────────
   if (payuRedirecting) {
     return (
-      <div className="fixed inset-0 bg-white/95 z-50 flex flex-col items-center justify-center">
+      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.28 }} className="fixed inset-0 bg-white/95 z-50 flex flex-col items-center justify-center">
         <div className="text-center">
-          <div className="inline-flex items-center justify-center w-20 h-20 mb-6 rounded-full bg-green-100">
+          <div className="inline-flex items-center justify-center w-20 h-20 mb-6 rounded-full bg-green-100 shadow-card">
             <svg className="w-10 h-10 text-green-600 animate-spin" fill="none" viewBox="0 0 24 24">
               <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
               <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/>
@@ -417,12 +418,12 @@ const Checkout = () => {
           <p className="text-gray-500 mb-4">You will be securely redirected to PayU's payment gateway.</p>
           <p className="text-sm text-gray-400">Do not close this window or press the back button.</p>
         </div>
-      </div>
+      </motion.div>
     );
   }
 
   return (
-    <div className="max-w-3xl mx-auto px-4 py-10">
+    <motion.div initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.32 }} className="max-w-3xl mx-auto px-4 py-10">
       <div className="flex items-center gap-3 mb-6">
         <h1 className="text-3xl font-bold text-gray-800">Checkout</h1>
       </div>
@@ -447,7 +448,7 @@ const Checkout = () => {
 
       {/* ── STEP 0: Shipping Address ───────────────────── */}
       {step === 0 && (
-        <form onSubmit={handleAddressSubmit} className="bg-white rounded-xl shadow-sm p-6 border border-gray-100 space-y-6">
+        <form onSubmit={handleAddressSubmit} className="bg-white rounded-xl shadow-card p-6 border border-gray-100 space-y-6">
           <div className="flex justify-between items-center">
             <h2 className="font-bold text-gray-800 text-lg">Shipping Address</h2>
             {isBuyNow && <span className="text-xs text-gray-500">Step 1 of 2</span>}
@@ -567,16 +568,16 @@ const Checkout = () => {
       {step === 1 && (
         <div className="space-y-4">
           {/* Payment Method Selection */}
-          <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+          <div className="bg-white rounded-xl shadow-card p-6 border border-gray-100">
             <h2 className="font-bold text-gray-800 mb-4 text-lg">Choose Payment Method</h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {/* Razorpay Option */}
               <label
                 id="payment-method-razorpay"
-                className={`flex flex-col items-center p-5 border-2 rounded-xl cursor-pointer transition-all ${
+                className={`flex flex-col items-center p-5 border-2 rounded-xl cursor-pointer transition-all interactive ${
                   paymentMethod === "razorpay"
-                    ? "border-brand bg-brand-light shadow-md ring-2 ring-brand/30"
-                    : "border-gray-200 hover:border-gray-300 hover:shadow-sm"
+                    ? "border-brand bg-brand-light shadow-card-hover ring-2 ring-brand/30"
+                    : "border-gray-200 hover:border-gray-300 hover:shadow-card-hover"
                 }`}
               >
                 <input
@@ -600,10 +601,10 @@ const Checkout = () => {
               {/* PayU Option */}
               <label
                 id="payment-method-payu"
-                className={`flex flex-col items-center p-5 border-2 rounded-xl cursor-pointer transition-all ${
+                className={`flex flex-col items-center p-5 border-2 rounded-xl cursor-pointer transition-all interactive ${
                   paymentMethod === "payu"
-                    ? "border-green-500 bg-green-50 shadow-md ring-2 ring-green-500/30"
-                    : "border-gray-200 hover:border-gray-300 hover:shadow-sm"
+                    ? "border-green-500 bg-green-50 shadow-card-hover ring-2 ring-green-500/30"
+                    : "border-gray-200 hover:border-gray-300 hover:shadow-card-hover"
                 }`}
               >
                 <input
@@ -640,15 +641,15 @@ const Checkout = () => {
           </div>
 
           {/* Delivery Type Selection */}
-          <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+          <div className="bg-white rounded-xl shadow-card p-6 border border-gray-100">
             <h2 className="font-bold text-gray-800 mb-4 text-lg">Choose Delivery Speed</h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {/* Normal Delivery Option */}
               <label
-                className={`block p-5 border-2 rounded-xl cursor-pointer transition-all ${
+                className={`block p-5 border-2 rounded-xl cursor-pointer transition-all interactive ${
                   deliveryType === "normal"
-                    ? "border-blue-500 bg-blue-50 shadow-md ring-2 ring-blue-500/30"
-                    : "border-gray-200 hover:border-gray-300 hover:shadow-sm"
+                    ? "border-blue-500 bg-blue-50 shadow-card-hover ring-2 ring-blue-500/30"
+                    : "border-gray-200 hover:border-gray-300 hover:shadow-card-hover"
                 }`}
               >
                 <input
@@ -673,13 +674,13 @@ const Checkout = () => {
                     <span className="text-blue-600 text-lg">✓</span>
                   )}
                 </div>
-              </label>
-
-              {/* Express Delivery Option */}
               <label
-                className={`block p-5 border-2 rounded-xl cursor-pointer transition-all ${
+                className={`block p-5 border-2 rounded-xl cursor-pointer transition-all interactive ${
                   deliveryType === "express"
-                    ? "border-orange-500 bg-orange-50 shadow-md ring-2 ring-orange-500/30"
+                    ? "border-orange-500 bg-orange-50 shadow-card-hover ring-2 ring-orange-500/30"
+                    : "border-gray-200 hover:border-gray-300 hover:shadow-card-hover"
+                }`}
+              >
                     : "border-gray-200 hover:border-gray-300 hover:shadow-sm"
                 }`}
               >
@@ -710,7 +711,7 @@ const Checkout = () => {
           </div>
 
           {/* Order Review */}
-          <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+          <div className="bg-white rounded-xl shadow-card p-6 border border-gray-100">
             <h2 className="font-bold text-gray-800 mb-4 text-lg">Order Review</h2>
             <div className="space-y-3">
               {items.map((item, i) => {
@@ -758,7 +759,7 @@ const Checkout = () => {
           </div>
 
           {/* Delivery Address Summary */}
-          <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100 text-sm text-gray-600">
+          <div className="bg-white rounded-xl shadow-card p-6 border border-gray-100 text-sm text-gray-600">
             <h3 className="font-semibold text-gray-800 mb-2">Delivering to:</h3>
             <p><strong>{currentAddress.name}</strong></p>
             <p>{currentAddress.street}</p>
@@ -768,14 +769,14 @@ const Checkout = () => {
 
           {/* Action Buttons */}
           <div className="flex gap-3">
-            <button onClick={() => setStep(0)} className="flex-1 py-3 bg-gray-200 text-gray-700 font-semibold rounded-lg hover:bg-gray-300 transition">
+            <button onClick={() => setStep(0)} className="flex-1 py-3 bg-gray-200 text-gray-700 font-semibold rounded-lg hover:bg-gray-300 transition interactive">
               ← Back
             </button>
             <button
               id="pay-now-button"
               onClick={handlePayNow}
               disabled={loading || items.length === 0}
-              className={`flex-1 py-3 font-semibold rounded-lg transition disabled:bg-gray-400 disabled:cursor-not-allowed text-white ${
+              className={`flex-1 py-3 font-semibold rounded-lg transition interactive disabled:bg-gray-400 disabled:cursor-not-allowed text-white ${
                 paymentMethod === "payu"
                   ? "bg-green-600 hover:bg-green-700"
                   : "bg-brand hover:bg-brand-dark"

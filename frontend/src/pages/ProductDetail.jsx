@@ -11,6 +11,7 @@ import { useAuth } from "../context/AuthContext";
 import { toast } from "react-toastify";
 import { ShoppingCart, Zap, CheckCircle, XCircle, Minus, Plus, Info, MessageSquare } from "lucide-react";
 import ProductRecommendations from "../components/ProductRecommendations";
+import { motion } from "framer-motion";
 
 // ── Star Rating Component ─────────────────────────────────────
 // Interactive when editable, static when display-only
@@ -262,7 +263,12 @@ const ProductDetail = () => {
   const totalReviews = product.numReviews || 0;
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3 }}
+      className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10"
+    >
       {/* ── PRODUCT LAYOUT ─────────────────────────────── */}
       <div className="grid grid-cols-12 gap-8">
 
@@ -289,7 +295,7 @@ const ProductDetail = () => {
 
         {/* COL 2: MAIN IMAGE */}
         <div
-          className="col-span-4 relative bg-gray-50 rounded-lg overflow-hidden cursor-crosshair"
+          className="col-span-5 relative bg-gray-50 rounded-lg overflow-hidden cursor-crosshair"
           onMouseMove={handleMouseMove}
           onMouseEnter={(e) => {
             setShowZoom(true);
@@ -312,94 +318,62 @@ const ProductDetail = () => {
         </div>
 
         {/* COL 3: PRODUCT INFO + ZOOM OVERLAY */}
-        <div className="col-span-7 relative h-fit">
+        <div className="col-span-6 relative h-fit">
           <div className={`transition-opacity duration-150 ${showZoom ? "opacity-0" : "opacity-100"}`}>
-            <span className="text-sm font-medium text-orange-600">{product.category}</span>
+            <div className="space-y-6 divide-y divide-gray-100">
 
-            <h1 className="text-2xl font-semibold text-gray-800">{product.name}</h1>
+              <div className="pb-4">
+                <span className="text-sm font-medium text-orange-600">{product.category}</span>
+                <h1 className="text-2xl font-semibold text-gray-800 mt-1">{product.name}</h1>
 
-            {/* Rating Summary (clickable → scrolls to reviews) */}
-            <a href="#reviews-section" className="flex items-center gap-2 hover:opacity-80 transition">
-              <StarRating rating={avgRating} size="text-lg" />
-              <span className="text-gray-500 text-sm">
-                {avgRating.toFixed(1)} ({totalReviews} {totalReviews === 1 ? "review" : "reviews"})
-              </span>
-            </a>
+                <div className="mt-3 flex items-center gap-3">
+                  <a href="#reviews-section" className="flex items-center gap-2 hover:opacity-80 transition-smooth">
+                    <StarRating rating={avgRating} size="text-lg" />
+                    <span className="text-gray-500 text-sm">{avgRating.toFixed(1)} ({totalReviews} {totalReviews === 1 ? "review" : "reviews"})</span>
+                  </a>
+                </div>
 
-            {/* Seller */}
-            <p className="text-sm text-gray-600">
-              Sold by:{" "}
-              <Link
-                to={`/seller/${product.seller?._id}`}
-                className="text-brand font-semibold hover:underline"
-              >
-                {product.seller?.name}
-              </Link>
-            </p>
-
-            {/* Price */}
-            <div className="bg-gray-50 p-4 rounded-lg">
-              <div className="flex items-baseline gap-3">
-                <span className="text-3xl font-bold text-gray-800">₹{displayPrice.toLocaleString()}</span>
-                {product.discountedPrice && (
-                  <>
-                    <span className="text-gray-400 line-through text-lg">₹{product.price.toLocaleString()}</span>
-                    <span className="text-red-600 font-bold">
-                      {Math.round(((product.price - product.discountedPrice) / product.price) * 100)}% OFF
-                    </span>
-                  </>
-                )}
+                <p className="text-sm text-gray-600 mt-3">Sold by: <Link to={`/seller/${product.seller?._id}`} className="text-brand font-semibold hover:underline">{product.seller?.name}</Link></p>
               </div>
-            </div>
 
-            {/* Description */}
-            <p className="text-gray-600 text-sm leading-relaxed">{product.description}</p>
+              <div className="pt-4 pb-4">
+                <div className="bg-gray-50 p-4 rounded-lg">
+                  <div className="flex items-baseline gap-3">
+                    <span className="text-3xl font-bold text-gray-800">₹{displayPrice.toLocaleString()}</span>
+                    {product.discountedPrice && (
+                      <>
+                        <span className="text-gray-400 line-through text-lg">₹{product.price.toLocaleString()}</span>
+                        <span className="text-red-600 font-bold">{Math.round(((product.price - product.discountedPrice) / product.price) * 100)}% OFF</span>
+                      </>
+                    )}
+                  </div>
+                </div>
 
-            {/* Stock */}
-            <p className={`text-sm font-semibold flex items-center gap-1.5 ${product.stock > 0 ? "text-accent-dark" : "text-red-600"}`}>
-              {product.stock > 0
-                ? <><CheckCircle className="w-4 h-4" /> In Stock ({product.stock} left)</>
-                : <><XCircle className="w-4 h-4" /> Out of Stock</>}
-            </p>
+                <p className="text-gray-600 text-sm leading-relaxed max-w-prose mt-4">{product.description}</p>
+              </div>
 
-            {/* Quantity */}
-            {product.stock > 0 && (
-              <div className="flex items-center gap-3">
-                <span className="text-sm font-medium">Quantity:</span>
-                <div className="flex items-center border border-gray-300 rounded-lg">
-                  <button
-                    onClick={() => setQty((q) => Math.max(1, q - 1))}
-                    className="px-3 py-2 hover:bg-gray-100"
-                  >
-                    −
-                  </button>
-                  <span className="px-4 py-2 font-semibold border-x border-gray-300 min-w-12 text-center">{qty}</span>
-                  <button
-                    onClick={() => setQty((q) => Math.min(product.stock, q + 1))}
-                    className="px-3 py-2 hover:bg-gray-100"
-                  >
-                    +
-                  </button>
+              <div className="pt-4">
+                <p className={`text-sm font-semibold flex items-center gap-1.5 ${product.stock > 0 ? "text-accent-dark" : "text-red-600"}`}>
+                  {product.stock > 0 ? <><CheckCircle className="w-4 h-4" /> In Stock ({product.stock} left)</> : <><XCircle className="w-4 h-4" /> Out of Stock</>}
+                </p>
+
+                {product.stock > 0 && (
+                  <div className="flex items-center gap-3 mt-3">
+                    <span className="text-sm font-medium">Quantity:</span>
+                    <div className="inline-flex items-center border border-gray-300 rounded-lg overflow-hidden">
+                      <button onClick={() => setQty((q) => Math.max(1, q - 1))} className="px-3 py-2 hover:bg-accent/10 transition-smooth">−</button>
+                      <span className="px-4 py-2 font-semibold border-x border-gray-300 min-w-12 text-center">{qty}</span>
+                      <button onClick={() => setQty((q) => Math.min(product.stock, q + 1))} className="px-3 py-2 hover:bg-accent/10 transition-smooth">+</button>
+                    </div>
+                  </div>
+                )}
+
+                <div className="flex gap-3 pt-4">
+                  <button onClick={handleAddToCart} disabled={product.stock === 0} className="btn-primary flex-1 py-2.5"> <ShoppingCart className="w-4 h-4" /> Add to Cart</button>
+                  <button onClick={handleBuyNow} disabled={product.stock === 0} className="btn-secondary flex-1 py-2.5"> <Zap className="w-4 h-4" /> Buy Now</button>
                 </div>
               </div>
-            )}
 
-            {/* Action Buttons */}
-            <div className="flex gap-3 pt-4">
-              <button
-                onClick={handleAddToCart}
-                disabled={product.stock === 0}
-                className="btn-secondary flex-1 py-2.5"
-              >
-                <ShoppingCart className="w-4 h-4" /> Add to Cart
-              </button>
-              <button
-                onClick={handleBuyNow}
-                disabled={product.stock === 0}
-                className="btn-primary flex-1 py-2.5"
-              >
-                <Zap className="w-4 h-4" /> Buy Now
-              </button>
             </div>
           </div>
 

@@ -6,16 +6,18 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import api from "../api/axios";
 import { Star, Zap } from "lucide-react";
+import { motion } from "framer-motion";
 
-const ProductCard = ({ product }) => {
+const ProductCard = ({ product, index = 0 }) => {
   const displayPrice = product.discountedPrice || product.price;
   const avgRating = product.rating || 0;
 
   return (
     <Link
       to={`/products/${product._id}`}
-      className="group bg-white rounded-lg border border-gray-200 overflow-hidden hover:shadow-lg transition-all duration-300 hover:border-brand"
+      className="group block"
     >
+      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3, delay: index * 0.05 }} className="bg-white rounded-lg border border-gray-200 overflow-hidden hover:border-brand shadow-card hover:shadow-card-hover transition-all duration-300">
       {/* Image Container */}
       <div className="relative w-full h-48 bg-gray-100 overflow-hidden">
         <img
@@ -62,7 +64,7 @@ const ProductCard = ({ product }) => {
         ) : (
           <span className="text-xs text-red-600 font-semibold">Out of Stock</span>
         )}
-      </div>
+      </motion.div>
     </Link>
   );
 };
@@ -152,8 +154,8 @@ const ProductRecommendations = ({ currentProductId, category, tags }) => {
             Products similar to this one based on tags: <span className="font-semibold">{tags?.join(", ")}</span>
           </p>
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
-            {suggestedProducts.map((product) => (
-              <ProductCard key={product._id} product={product} />
+            {suggestedProducts.map((product, i) => (
+              <ProductCard key={product._id} product={product} index={i} />
             ))}
           </div>
         </div>
@@ -165,12 +167,12 @@ const ProductRecommendations = ({ currentProductId, category, tags }) => {
       {hasSimilarProducts && (
         <div>
           <div className="flex items-center gap-3 mb-6">
-            <h2 className="text-2xl font-bold text-gray-800">Similar Products</h2>
+            <h2 className="text-2xl font-bold text-gray-800">More Products</h2>
             <span className="text-lg text-gray-600">in {category}</span>
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
-            {similarProducts.map((product) => (
-              <ProductCard key={product._id} product={product} />
+            {similarProducts.map((product, i) => (
+              <ProductCard key={product._id} product={product} index={i} />
             ))}
           </div>
         </div>

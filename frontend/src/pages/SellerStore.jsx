@@ -63,8 +63,8 @@ const SellerStore = () => {
       {/* Products Grid */}
       {products.length > 0 ? (
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-          {products.map((product) => (
-            <ProductCard key={product._id} product={product} />
+          {products.map((product, i) => (
+            <ProductCard key={product._id} product={product} index={i} />
           ))}
         </div>
       ) : (
@@ -73,7 +73,7 @@ const SellerStore = () => {
           <p className="text-gray-600 text-lg">No products found from this seller.</p>
           <button
             onClick={() => navigate("/products")}
-            className="mt-6 px-6 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition"
+            className="mt-6 px-6 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transform hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 ease-in-out"
           >
             Continue Shopping
           </button>

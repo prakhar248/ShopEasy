@@ -5,9 +5,10 @@
 import { useEffect, useState } from "react";
 import api from "../api/axios";
 import { toast } from "react-toastify";
+import { motion } from "framer-motion";
 
 const StatCard = ({ icon, label, value, color, sub }) => (
-  <div className={`card border-l-4 ${color}`}>
+  <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.22 }} className={`card interactive border-l-4 ${color}`}>
     <div className="flex items-center justify-between">
       <div>
         <p className="text-sm text-gray-500 mb-1">{label}</p>
@@ -16,7 +17,7 @@ const StatCard = ({ icon, label, value, color, sub }) => (
       </div>
       <span className="text-4xl">{icon}</span>
     </div>
-  </div>
+  </motion.div>
 );
 
 const AdminDashboard = () => {
@@ -100,7 +101,7 @@ const AdminDashboard = () => {
   ];
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-8">
+    <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.28 }} className="max-w-7xl mx-auto px-4 py-8">
       <h1 className="text-3xl font-bold text-gray-800 mb-2">Admin Dashboard</h1>
       <p className="text-gray-400 text-sm mb-6">Manage the entire ShopEasy platform</p>
 

@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import api from "../api/axios";
 import ProductCard from "../components/ProductCard";
+import { motion } from "framer-motion";
 import { Search, SlidersHorizontal, X, ChevronLeft, ChevronRight } from "lucide-react";
 
 const CATEGORIES = ["All", "Electronics", "Clothing", "Books", "Home", "Sports", "Beauty"];
@@ -165,7 +166,7 @@ const Products = () => {
       {/* Page header */}
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Products</h1>
+          <h1 className="text-3xl font-bold text-brand">Products</h1>
           <p className="text-sm text-gray-500 mt-0.5">
             {loading ? "Loading..." : `${total} products found`}
           </p>
@@ -193,7 +194,7 @@ const Products = () => {
       <div className="flex gap-6">
 
         {/* Desktop sidebar */}
-        <aside className="hidden md:block w-60 shrink-0">
+        <aside className="hidden md:block w-72 shrink-0">
           <div className="card sticky top-24">
             <h2 className="font-semibold text-gray-900 text-sm mb-4">Filters</h2>
             <FilterContent />
@@ -204,27 +205,30 @@ const Products = () => {
         <main className="flex-1 min-w-0">
 
           {loading ? (
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
               {[...Array(6)].map((_, i) => (
-                <div key={i} className="card animate-pulse p-0">
-                  <div className="aspect-square bg-gray-100 rounded-t-xl" />
+                <div key={i} className="card p-0 overflow-hidden">
+                  <div className="skeleton aspect-[4/3] w-full" />
                   <div className="p-4 space-y-2">
-                    <div className="h-3 bg-gray-100 rounded w-1/3" />
-                    <div className="h-4 bg-gray-100 rounded" />
-                    <div className="h-4 bg-gray-100 rounded w-2/3" />
+                    <div className="skeleton h-3 rounded w-1/3" />
+                    <div className="skeleton h-4 rounded" />
+                    <div className="skeleton h-4 rounded w-2/3" />
                   </div>
                 </div>
               ))}
             </div>
           ) : products.length === 0 ? (
-            <div className="text-center py-20">
-              <Search className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35 }} className="text-center py-20">
+              <Search className="w-14 h-14 text-gray-300 mx-auto mb-4" />
               <p className="text-lg font-semibold text-gray-700">No products found</p>
               <p className="text-sm text-gray-400 mt-1">Try adjusting your search or filters</p>
-            </div>
+              <div className="mt-6">
+                <button onClick={handleReset} className="btn-primary">Reset Filters</button>
+              </div>
+            </motion.div>
           ) : (
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-              {products.map((p) => <ProductCard key={p._id} product={p} />)}
+            <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+              {products.map((p, i) => <ProductCard key={p._id} product={p} index={i} />)}
             </div>
           )}
 

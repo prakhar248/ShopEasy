@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import api from "../api/axios";
 import ProductCard from "../components/ProductCard";
+import { motion } from "framer-motion";
 import {
   ArrowRight,
   Monitor,
@@ -54,7 +55,7 @@ const HomePage = () => {
   }, []);
 
   return (
-    <div className="min-h-screen">
+    <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.32 }} className="min-h-screen">
 
       {/* ── Hero ──────────────────────────────────────────── */}
       <section className="bg-brand text-white">
@@ -115,20 +116,20 @@ const HomePage = () => {
         {loading ? (
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {[...Array(8)].map((_, i) => (
-              <div key={i} className="card animate-pulse p-0">
-                <div className="aspect-square bg-gray-100 rounded-t-xl" />
+              <div key={i} className="card p-0 overflow-hidden">
+                <div className="skeleton aspect-square w-full" />
                 <div className="p-4 space-y-2">
-                  <div className="h-3 bg-gray-100 rounded w-1/3" />
-                  <div className="h-4 bg-gray-100 rounded" />
-                  <div className="h-4 bg-gray-100 rounded w-2/3" />
+                  <div className="skeleton h-3 rounded w-1/3" />
+                  <div className="skeleton h-4 rounded" />
+                  <div className="skeleton h-4 rounded w-2/3" />
                 </div>
               </div>
             ))}
           </div>
         ) : (
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {featured.map((product) => (
-              <ProductCard key={product._id} product={product} />
+            {featured.map((product, i) => (
+              <ProductCard key={product._id} product={product} index={i} />
             ))}
           </div>
         )}

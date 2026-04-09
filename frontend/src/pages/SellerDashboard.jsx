@@ -7,10 +7,11 @@ import { Link } from "react-router-dom";
 import api from "../api/axios";
 import { toast } from "react-toastify";
 import ProductFormWithImages from "../components/ProductFormWithImages";
+import { motion } from "framer-motion";
 
 // ── Sub-component: Stat Card ─────────────────────────────────
 const StatCard = ({ icon, label, value, color }) => (
-  <div className={`card border-l-4 ${color}`}>
+  <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.22 }} className={`card interactive border-l-4 ${color}`}>
     <div className="flex items-center justify-between">
       <div>
         <p className="text-sm text-gray-500 mb-1">{label}</p>
@@ -18,7 +19,7 @@ const StatCard = ({ icon, label, value, color }) => (
       </div>
       <span className="text-4xl">{icon}</span>
     </div>
-  </div>
+  </motion.div>
 );
 
 // ── Main Dashboard Component ─────────────────────────────────
@@ -74,7 +75,7 @@ const SellerDashboard = () => {
   ];
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-8">
+    <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.28 }} className="max-w-7xl mx-auto px-4 py-8">
       <div className="flex items-center justify-between gap-3 mb-2">
         <h1 className="text-3xl font-bold text-gray-800">Seller Dashboard</h1>
         <Link to="/create-product" className="btn-primary text-sm">
