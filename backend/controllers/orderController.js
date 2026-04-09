@@ -169,7 +169,7 @@ exports.updateOrderStatus = async (req, res, next) => {
               <p>You can track your order status anytime in your account dashboard.</p>
             `,
             ctaText: "Track My Order",
-            ctaUrl: `${process.env.FRONTEND_URL || "http://localhost:5173"}/orders`,
+            ctaUrl: `${process.env.FRONTEND_URL || "https://shop-easy-nine-phi.vercel.app"}/orders`,
             footer: "Thank you for your patience! — The ShopEasy Team",
           }),
         });
@@ -200,7 +200,7 @@ exports.updateOrderStatus = async (req, res, next) => {
               <p>Please share your feedback in the product reviews — your reviews help other customers!</p>
             `,
             ctaText: "Write a Review",
-            ctaUrl: `${process.env.FRONTEND_URL || "http://localhost:5173"}/orders`,
+            ctaUrl: `${process.env.FRONTEND_URL || "https://shop-easy-nine-phi.vercel.app"}/orders`,
             footer: "Thank you for shopping with ShopEasy!",
           }),
         });

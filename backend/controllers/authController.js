@@ -211,7 +211,7 @@ exports.verifySignupOtp = async (req, res, next) => {
         greeting: `Hi ${tempUser.name},`,
         body: welcomeBody,
         ctaText: tempUser.role === "seller" ? "Go to Seller Dashboard" : "Start Shopping",
-        ctaUrl: `${process.env.FRONTEND_URL || "http://localhost:5173"}/${tempUser.role === "seller" ? "seller-dashboard" : ""}`,
+        ctaUrl: `${process.env.FRONTEND_URL || "https://shop-easy-nine-phi.vercel.app"}/${tempUser.role === "seller" ? "seller-dashboard" : ""}`,
         footer: "Thank you for joining ShopEasy. We're committed to providing the best shopping experience.",
       });
 

@@ -167,7 +167,7 @@ exports.approveSeller = async (req, res, next) => {
             <p>Best of luck with your store! We're excited to have you as part of ShopEasy.</p>
           `,
           ctaText: "Go to Seller Dashboard",
-          ctaUrl: `${process.env.FRONTEND_URL || "http://localhost:5173"}/seller`,
+          ctaUrl: `${process.env.FRONTEND_URL || "https://shop-easy-nine-phi.vercel.app"}/seller`,
           footer: "If you have any questions, feel free to contact our support team.",
         }),
       });

@@ -21,7 +21,7 @@ app.use(
   cors({
     origin:
       process.env.NODE_ENV === "production"
-        ? "https://your-production-domain.com"
+        ? "https://shop-easy-nine-phi.vercel.app"
         : process.env.FRONTEND_URL || "http://localhost:3000",
     credentials: true,
   })

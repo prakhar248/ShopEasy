@@ -185,7 +185,7 @@ exports.verifyPayment = async (req, res, next) => {
             <p>Your order will be processed and shipped soon. You'll receive a shipping notification once dispatched.</p>
           `,
           ctaText: "View My Orders",
-          ctaUrl: `${process.env.FRONTEND_URL || "http://localhost:5173"}/orders`,
+          ctaUrl: `${process.env.FRONTEND_URL || "https://shop-easy-nine-phi.vercel.app"}/orders`,
           footer: "Thank you for shopping with ShopEasy!",
         }),
       });
@@ -406,7 +406,7 @@ exports.handlePayUSuccess = async (req, res, next) => {
               <p>Your order will be processed and shipped soon. You'll receive a shipping notification once dispatched.</p>
             `,
             ctaText: "View My Orders",
-            ctaUrl: `${process.env.FRONTEND_URL || "http://localhost:5173"}/orders`,
+            ctaUrl: `${process.env.FRONTEND_URL || "https://shop-easy-nine-phi.vercel.app"}/orders`,
             footer: "Thank you for shopping with ShopEasy!",
           }),
         });
