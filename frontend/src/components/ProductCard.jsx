@@ -111,7 +111,7 @@ const ProductCard = ({ product, index = 0 }) => {
             </button>
           </div>
         </div>
-      </div>
+      </motion.div>
     </Link>
   );
 };

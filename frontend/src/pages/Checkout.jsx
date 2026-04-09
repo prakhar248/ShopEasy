@@ -644,14 +644,11 @@ const Checkout = () => {
           <div className="bg-white rounded-xl shadow-card p-6 border border-gray-100">
             <h2 className="font-bold text-gray-800 mb-4 text-lg">Choose Delivery Speed</h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {/* Normal Delivery Option */}
-              <label
-                className={`block p-5 border-2 rounded-xl cursor-pointer transition-all interactive ${
-                  deliveryType === "normal"
-                    ? "border-blue-500 bg-blue-50 shadow-card-hover ring-2 ring-blue-500/30"
-                    : "border-gray-200 hover:border-gray-300 hover:shadow-card-hover"
-                }`}
-              >
+              <label className={`block p-5 border-2 rounded-xl cursor-pointer transition-all interactive ${
+                deliveryType === "normal"
+                  ? "border-blue-500 bg-blue-50 shadow-card-hover ring-2 ring-blue-500/30"
+                  : "border-gray-200 hover:border-gray-300 hover:shadow-card-hover"
+              }`}>
                 <input
                   type="radio"
                   name="deliveryType"
@@ -674,16 +671,13 @@ const Checkout = () => {
                     <span className="text-blue-600 text-lg">✓</span>
                   )}
                 </div>
-              <label
-                className={`block p-5 border-2 rounded-xl cursor-pointer transition-all interactive ${
-                  deliveryType === "express"
-                    ? "border-orange-500 bg-orange-50 shadow-card-hover ring-2 ring-orange-500/30"
-                    : "border-gray-200 hover:border-gray-300 hover:shadow-card-hover"
-                }`}
-              >
-                    : "border-gray-200 hover:border-gray-300 hover:shadow-sm"
-                }`}
-              >
+              </label>
+
+              <label className={`block p-5 border-2 rounded-xl cursor-pointer transition-all interactive ${
+                deliveryType === "express"
+                  ? "border-orange-500 bg-orange-50 shadow-card-hover ring-2 ring-orange-500/30"
+                  : "border-gray-200 hover:border-gray-300 hover:shadow-card-hover"
+              }`}>
                 <input
                   type="radio"
                   name="deliveryType"

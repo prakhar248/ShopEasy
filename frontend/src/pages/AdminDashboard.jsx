@@ -416,7 +416,7 @@ const AdminDashboard = () => {
           </table>
         </div>
       )}
-    </div>
+    </motion.div>
   );
 };
 

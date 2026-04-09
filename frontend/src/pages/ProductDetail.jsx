@@ -41,7 +41,7 @@ const StarRating = ({ rating, onRate, size = "text-xl", editable = false }) => {
           </button>
         );
       })}
-    </div>
+      </motion.div>
   );
 };
 

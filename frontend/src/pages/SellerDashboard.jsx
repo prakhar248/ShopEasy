@@ -263,7 +263,7 @@ const SellerDashboard = () => {
       {tab === "profile" && profile && (
         <StoreProfileEditor profile={profile} onUpdated={fetchProfile} />
       )}
-    </div>
+    </motion.div>
   );
 };
 
