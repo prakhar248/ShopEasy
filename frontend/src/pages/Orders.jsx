@@ -480,12 +480,12 @@ const Orders = () => {
                     Total: <span className="text-brand">₹{order.totalPrice.toLocaleString()}</span>
                   </p>
                 </div>
-              </div>
+              </motion.div>
             );
           })}
         </div>
       )}
-    </div>
+    </motion.div>
   );
 };
 
