@@ -61,6 +61,7 @@ exports.getProducts = async (req, res, next) => {
     const {
       search,
       category,
+      tags,                 // NEW: Filter by comma-separated tags
       minPrice,
       maxPrice,
       seller,               // Filter by a specific seller's products
@@ -86,6 +87,15 @@ exports.getProducts = async (req, res, next) => {
 
     if (category && category !== "All") filter.category = category;
     if (seller)   filter.seller    = seller;
+    
+    // NEW: Filter by tags (match any of the provided tags)
+    if (tags) {
+      const tagArray = tags.split(",").map((t) => t.trim()).filter((t) => t.length > 0);
+      if (tagArray.length > 0) {
+        filter.tags = { $in: tagArray };
+      }
+    }
+    
     if (minPrice || maxPrice) {
       filter.price = {};
       if (minPrice) filter.price.$gte = Number(minPrice);

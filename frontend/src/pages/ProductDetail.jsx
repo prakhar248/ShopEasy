@@ -10,6 +10,7 @@ import { useCart } from "../context/CartContext";
 import { useAuth } from "../context/AuthContext";
 import { toast } from "react-toastify";
 import { ShoppingCart, Zap, CheckCircle, XCircle, Minus, Plus, Info, MessageSquare } from "lucide-react";
+import ProductRecommendations from "../components/ProductRecommendations";
 
 // ── Star Rating Component ─────────────────────────────────────
 // Interactive when editable, static when display-only
@@ -569,6 +570,17 @@ const ProductDetail = () => {
             )}
           </div>
         </div>
+      </div>
+
+      {/* ════════════════════════════════════════════════════════════
+          PRODUCT RECOMMENDATIONS
+          ════════════════════════════════════════════════════════════ */}
+      <div className="mt-16 pt-12 border-t border-gray-200">
+        <ProductRecommendations
+          currentProductId={product._id}
+          category={product.category}
+          tags={product.tags}
+        />
       </div>
     </div>
   );
