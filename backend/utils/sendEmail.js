@@ -24,8 +24,8 @@ console.log("   Pass: ***HIDDEN***");
 // Create Nodemailer transporter with Brevo SMTP
 const transporter = nodemailer.createTransport({
   host: process.env.SMTP_HOST,
-  port: process.env.SMTP_PORT || 587,
-  secure: false, // TLS (not SSL)
+  port: process.env.SMTP_PORT || 465,
+  secure: true, // SSL
   auth: {
     user: process.env.SMTP_USER,
     pass: process.env.SMTP_PASS
