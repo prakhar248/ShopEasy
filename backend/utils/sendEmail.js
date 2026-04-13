@@ -1,88 +1,175 @@
 // ============================================================
-//  utils/sendEmail.js — Brevo SMTP email utility
-//  Sends emails via Brevo SMTP with detailed error logging
+//  utils/sendEmail.js — Brevo Email with Fallback
+//  SMTP-first strategy with Brevo API fallback for reliability
+//  Handles deployed environment issues (ETIMEDOUT on Render, etc)
 // ============================================================
 
 const nodemailer = require("nodemailer");
+const axios = require("axios");
 
-// Validate SMTP configuration
+const SENDER_EMAIL = "prakharchouhan.dev@gmail.com";
+const SENDER_NAME = "ShopEasy";
+const BREVO_API_URL = "https://api.brevo.com/v3/smtp/email";
+const SMTP_TIMEOUT = 10000; // 10 seconds timeout for SMTP
+
+// ──────────────────────────────────────────────────────────
+// SMTP Configuration & Validation
+// ──────────────────────────────────────────────────────────
+
 if (!process.env.SMTP_HOST || !process.env.SMTP_USER || !process.env.SMTP_PASS) {
-  console.error("❌ SMTP configuration is incomplete in .env file");
-  console.error("Required: SMTP_HOST, SMTP_USER, SMTP_PASS");
-  console.error("SMTP_HOST:", process.env.SMTP_HOST);
-  console.error("SMTP_USER:", process.env.SMTP_USER);
-  console.error("SMTP_PASS:", process.env.SMTP_PASS ? "***" : "NOT SET");
-  process.exit(1);
+  console.warn("⚠️  SMTP configuration incomplete — will use API fallback");
+  console.warn("   SMTP_HOST:", process.env.SMTP_HOST ? "SET" : "NOT SET");
+  console.warn("   SMTP_USER:", process.env.SMTP_USER ? "SET" : "NOT SET");
+  console.warn("   SMTP_PASS:", process.env.SMTP_PASS ? "SET" : "NOT SET");
 }
 
-console.log("📧 Brevo SMTP Configuration:");
-console.log("   Host:", process.env.SMTP_HOST);
-console.log("   Port:", process.env.SMTP_PORT || 587);
-console.log("   User:", process.env.SMTP_USER);
-console.log("   Pass: ***HIDDEN***");
+if (!process.env.BREVO_API_KEY) {
+  console.warn("⚠️  BREVO_API_KEY not set — API fallback will fail");
+}
 
-// Create Nodemailer transporter with Brevo SMTP
-const transporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST,
-  port: process.env.SMTP_PORT || 465,
-  secure: true, // SSL
-  auth: {
-    user: process.env.SMTP_USER,
-    pass: process.env.SMTP_PASS
-  },
-  logger: true, // Enable debug logging
-  debug: true   // Enable debug output
-});
+// Create Nodemailer transporter with timeout
+let transporter = null;
 
-// Verify SMTP connection on startup
-console.log("🔍 Testing SMTP connection...");
-transporter.verify()
-  .then(() => {
-    console.log("✅ Brevo SMTP connection successful!");
-  })
-  .catch((error) => {
-    console.error("❌ SMTP connection test failed:");
-    console.error("   Error:", error.message);
-    console.error("   Code:", error.code);
-    console.error("   Hostname:", error.hostname);
+if (process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS) {
+  transporter = nodemailer.createTransport({
+    host: process.env.SMTP_HOST,
+    port: process.env.SMTP_PORT || 465,
+    secure: true, // SSL
+    auth: {
+      user: process.env.SMTP_USER,
+      pass: process.env.SMTP_PASS
+    },
+    connectionTimeout: SMTP_TIMEOUT,
+    socketTimeout: SMTP_TIMEOUT,
+    logger: false,
+    debug: false
   });
 
+  // Verify SMTP connection on startup (non-blocking)
+  console.log("🔍 Testing SMTP connection...");
+  transporter.verify()
+    .then(() => {
+      console.log("✅ Brevo SMTP connection successful!");
+    })
+    .catch((error) => {
+      console.warn("⚠️  SMTP connection test failed — will use API fallback");
+      console.warn("   Error:", error.message);
+    });
+}
+
+// ──────────────────────────────────────────────────────────
+// API Fallback Method (Brevo REST API)
+// ──────────────────────────────────────────────────────────
+
 /**
- * Send an email using Brevo SMTP (Nodemailer).
+ * Send email via Brevo REST API (fallback)
+ * @param {string} to - recipient email
+ * @param {string} subject - email subject
+ * @param {string} html - HTML content
+ * @returns {Promise<Object>} - API response
+ */
+const sendViaBrevoAPI = async (to, subject, html) => {
+  if (!process.env.BREVO_API_KEY) {
+    throw new Error("BREVO_API_KEY is not configured");
+  }
+
+  try {
+    const response = await axios.post(
+      BREVO_API_URL,
+      {
+        sender: {
+          name: SENDER_NAME,
+          email: SENDER_EMAIL
+        },
+        to: [{ email: to }],
+        subject,
+        htmlContent: html
+      },
+      {
+        headers: {
+          "api-key": process.env.BREVO_API_KEY,
+          "Content-Type": "application/json"
+        },
+        timeout: SMTP_TIMEOUT
+      }
+    );
+
+    return {
+      messageId: response.data.messageId,
+      response: "Email sent via Brevo API",
+      via: "API"
+    };
+  } catch (error) {
+    const errorMsg = error.response?.data?.message || error.message;
+    throw new Error(`Brevo API error: ${errorMsg}`);
+  }
+};
+
+// ──────────────────────────────────────────────────────────
+// Main Email Function (SMTP → API Fallback)
+// ──────────────────────────────────────────────────────────
+
+/**
+ * Send email with automatic fallback from SMTP to Brevo API.
+ * FIRST tries SMTP (reliable for local/traditional deploys).
+ * ON FAILURE falls back to Brevo REST API (reliable for serverless/Render).
  * 
  * @param {Object} options
- * @param {string} options.to      — recipient email
+ * @param {string} options.to      — recipient email address
  * @param {string} options.subject — email subject line
  * @param {string} options.html    — HTML body content
- * @returns {Promise<Object>}      — Nodemailer response
+ * @returns {Promise<Object>}      — { messageId, response, via: "SMTP"|"API" }
+ * @throws {Error}                 — if both methods fail
  */
 const sendEmail = async ({ to, subject, html }) => {
+  // Input validation
+  if (!to) throw new Error("Recipient email is required");
+  if (!subject) throw new Error("Email subject is required");
+  if (!html) throw new Error("Email HTML content is required");
+
+  console.log("\n📧 Attempting to send email...");
+  console.log("   To:", to);
+  console.log("   Subject:", subject);
+
+  // ─── STRATEGY 1: SMTP (Primary) ──────────────────────────────
+  if (transporter) {
+    try {
+      const info = await transporter.sendMail({
+        from: `"${SENDER_NAME}" <${SENDER_EMAIL}>`,
+        to,
+        subject,
+        html
+      });
+
+      console.log("✅ Email sent successfully via SMTP!");
+      console.log("   Message ID:", info.messageId);
+      return {
+        messageId: info.messageId,
+        response: info.response,
+        via: "SMTP"
+      };
+    } catch (smtpError) {
+      // Log SMTP failure and proceed to fallback
+      console.warn("\n⚠️  SMTP failed, switching to API...");
+      console.warn("   Error:", smtpError.message);
+      console.warn("   Code:", smtpError.code);
+    }
+  }
+
+  // ─── STRATEGY 2: Brevo API (Fallback) ─────────────────────────
   try {
-    if (!to) throw new Error("Recipient email is required");
-    if (!subject) throw new Error("Email subject is required");
-    if (!html) throw new Error("Email HTML content is required");
-
-    console.log("\n📧 Attempting to send email...");
-    console.log("   To:", to);
-    console.log("   Subject:", subject);
-
-    const info = await transporter.sendMail({
-      from: `"ShopEasy" <prakharchouhan.dev@gmail.com>`, // Sender address
-      to,
-      subject,
-      html
-    });
-
-    console.log("✅ Email sent successfully!");
-    console.log("   Message ID:", info.messageId);
-    console.log("   Response:", info.response);
-    return info;
-  } catch (err) {
-    console.error("\n❌ Email sending failed!");
-    console.error("   Error Message:", err.message);
-    console.error("   Error Code:", err.code);
-    console.error("   Error Details:", err);
-    throw err;
+    console.log("🔄 Sending email via Brevo API...");
+    const apiResult = await sendViaBrevoAPI(to, subject, html);
+    console.log("✅ Email sent successfully via API!");
+    console.log("   Message ID:", apiResult.messageId);
+    return apiResult;
+  } catch (apiError) {
+    console.error("\n❌ Email sending failed (both SMTP and API)!");
+    console.error("   SMTP Error: Previous attempt failed");
+    console.error("   API Error:", apiError.message);
+    throw new Error(
+      `Email delivery failed: SMTP unavailable, API error: ${apiError.message}`
+    );
   }
 };
 
